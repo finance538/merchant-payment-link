@@ -7,9 +7,11 @@ What it does:
 - Client page shows only the amount and a Pay Now button.
 - No customer name field.
 - No customer email field.
+- No customer phone field.
 - Merchant page creates a link using amount only.
 - Netlify Function creates the checkout session server-side.
 - Demo mode works immediately after deployment.
+- PayTabs Hosted Payment Page is supported through server-side environment variables.
 
 ## Pages
 
@@ -42,7 +44,20 @@ netlify/functions
 
 The project runs in demo mode by default.
 
-For real checkout, add environment variables in Netlify:
+For PayTabs, add these variables in Netlify:
+
+- `PAYMENT_PROVIDER=paytabs`
+- `PAYTABS_PROFILE_ID=your_paytabs_profile_id`
+- `PAYTABS_SERVER_KEY=your_paytabs_server_key`
+- `PAYTABS_API_URL=https://secure.paytabs.sa/payment/request`
+- `PUBLIC_SITE_URL=https://merchant-payment-link.netlify.app`
+
+Optional PayTabs variables:
+
+- `PAYTABS_CART_DESCRIPTION=Merchant Payment Link`
+- `PAYTABS_CALLBACK_URL=https://merchant-payment-link.netlify.app/success.html`
+
+For a generic JSON provider instead of PayTabs:
 
 - `PAYMENT_PROVIDER=generic-json-api`
 - `PAYMENT_API_URL=https://your-provider.example/create-session`
