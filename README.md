@@ -14,6 +14,7 @@ What it does:
 - Demo mode works immediately after deployment.
 - PayTabs Hosted Payment Page is supported through server-side environment variables.
 - Tamara checkout is supported through server-side environment variables.
+- Tap hosted payment page is supported through server-side environment variables.
 - Merchant review waits up to 20 seconds, except rejected PayTabs payments which are rejected automatically.
 - Telegram alerts can send a direct control-panel link for the specific payment.
 
@@ -74,6 +75,21 @@ For Tamara, add these variables in Netlify:
 - `TAMARA_PLATFORM=ONESHOT_POS_QR`
 - `TAMARA_LOCALE=en_US`
 - `PUBLIC_SITE_URL=https://merchant-payment-link.netlify.app`
+
+For Tap, add these variables in Netlify:
+
+- `TAP_SECRET_KEY=your_tap_secret_key`
+- `TAP_API_URL=https://api.tap.company/v2/charges`
+- `TAP_SOURCE_ID=src_all`
+- `TAP_CUSTOMER_EMAIL=payments@example.com`
+- `TAP_STATEMENT_DESCRIPTOR=Merchant Payment`
+- `PUBLIC_SITE_URL=https://merchant-payment-link.netlify.app`
+
+Optional Tap variables:
+
+- `TAP_MERCHANT_ID=your_tap_merchant_id`
+- `TAP_CUSTOMER_FIRST_NAME=Customer`
+- `TAP_CUSTOMER_LAST_NAME=Payment`
 
 Optional Telegram variables for merchant alerts:
 

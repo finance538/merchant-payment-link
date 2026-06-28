@@ -36,6 +36,20 @@ type TamaraCheckoutResponse = {
   errors?: Array<{ error_code?: string; message?: string }>;
 };
 
+type TapChargeResponse = {
+  id?: string;
+  status?: string;
+  message?: string;
+  errors?: Array<{ code?: string; description?: string; message?: string }>;
+  transaction?: {
+    url?: string;
+  };
+  response?: {
+    code?: string;
+    message?: string;
+  };
+};
+
 export default async (req: Request, context: Context) => {
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
@@ -173,6 +187,120 @@ export default async (req: Request, context: Context) => {
     return json({ url: checkoutUrl, tranRef: payTabsData.tran_ref }, 200);
   }
 
+  if (provider === "tap") {
+    const secretKey = Netlify.env.get("TAP_SECRET_KEY");
+    const apiUrl = (Netlify.env.get("TAP_API_URL") || "https://api.tap.company/v2/charges").replace(/\/$/, "");
+    const sourceId = Netlify.env.get("TAP_SOURCE_ID") || "src_all";
+    const customerEmail = Netlify.env.get("TAP_CUSTOMER_EMAIL") || "payments@example.com";
+    const customerFirstName = Netlify.env.get("TAP_CUSTOMER_FIRST_NAME") || "Customer";
+    const customerLastName = Netlify.env.get("TAP_CUSTOMER_LAST_NAME") || "Payment";
+    const statementDescriptor = Netlify.env.get("TAP_STATEMENT_DESCRIPTOR") || "Merchant Payment";
+
+    if (!secretKey) {
+      return json({ error: "TAP_SECRET_KEY is missing" }, 500);
+    }
+
+    const cartId = createCartId();
+    const returnUrl = origin + "/api/tap-return?amount=" + encodeURIComponent(amount.toFixed(2)) + "&currency=" + currency + "&cart_id=" + encodeURIComponent(cartId);
+    const postUrl = origin + "/api/tap-webhook";
+    const review = await upsertPaymentReview({
+      id: cartId,
+      cartId,
+      provider: "tap",
+      gateway: "Tap",
+      customerIp,
+      customerId: cartId,
+      amount: amount.toFixed(2),
+      currency,
+      actualStatus: "INITIATED",
+      actualAccepted: false,
+      source: "created",
+    });
+
+    context.waitUntil(
+      notifyMerchantEvent(review, origin, "tap-started", "Payment started", [
+        "Stage: customer selected Tap and pressed Pay",
+      ]).catch((error) => console.error("Unable to send Tap start notification", error)),
+    );
+
+    const tapBody: Record<string, unknown> = {
+      amount: Number(amount.toFixed(2)),
+      currency,
+      customer_initiated: true,
+      threeDSecure: true,
+      save_card: false,
+      description: "Merchant Payment Link",
+      statement_descriptor: statementDescriptor,
+      metadata: {
+        cart_id: cartId,
+        provider: "merchant-payment-link",
+      },
+      reference: {
+        transaction: cartId,
+        order: cartId,
+        idempotent: cartId,
+      },
+      receipt: {
+        email: false,
+        sms: false,
+      },
+      customer: {
+        first_name: customerFirstName,
+        last_name: customerLastName,
+        email: customerEmail,
+      },
+      source: {
+        id: sourceId,
+      },
+      post: {
+        url: postUrl,
+      },
+      redirect: {
+        url: returnUrl,
+      },
+    };
+    const merchantId = Netlify.env.get("TAP_MERCHANT_ID");
+
+    if (merchantId) {
+      tapBody.merchant = { id: merchantId };
+    }
+
+    const tapResponse = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + secretKey,
+      },
+      body: JSON.stringify(tapBody),
+    });
+
+    const tapData = (await tapResponse.json().catch(() => ({}))) as TapChargeResponse;
+    const checkoutUrl = tapData.transaction?.url;
+
+    if (!tapResponse.ok || !checkoutUrl) {
+      return json({ error: getTapError(tapData, tapResponse.status) }, 502);
+    }
+
+    await upsertPaymentReview({
+      id: cartId,
+      cartId,
+      provider: "tap",
+      gateway: "Tap",
+      gatewayOrderId: tapData.id,
+      customerIp,
+      customerId: cartId,
+      amount: amount.toFixed(2),
+      currency,
+      actualStatus: tapData.status || "INITIATED",
+      actualCode: tapData.response?.code,
+      actualMessage: tapData.response?.message,
+      actualAccepted: tapData.status === "CAPTURED",
+      source: "created",
+    });
+
+    return json({ url: checkoutUrl, chargeId: tapData.id }, 200);
+  }
+
   if (provider === "tamara") {
     const apiToken = Netlify.env.get("TAMARA_API_TOKEN") || Netlify.env.get("TAMARA_MERCHANT_KEY");
     const apiBaseUrl = (Netlify.env.get("TAMARA_API_URL") || "https://api.tamara.co").replace(/\/$/, "");
@@ -280,7 +408,7 @@ function normaliseProvider(value: string | undefined): string {
 
   const provider = value.toLowerCase().trim();
 
-  if (["paytabs", "tamara", "demo", "redirect", "generic-json-api"].includes(provider)) return provider;
+  if (["paytabs", "tamara", "tap", "demo", "redirect", "generic-json-api"].includes(provider)) return provider;
 
   return "";
 }
@@ -320,6 +448,12 @@ function getTamaraError(data: TamaraCheckoutResponse, status: number): string {
   const firstError = data.errors?.find((error) => error.message || error.error_code);
 
   return data.message || firstError?.message || firstError?.error_code || "Tamara did not return a checkout URL (HTTP " + status + ")";
+}
+
+function getTapError(data: TapChargeResponse, status: number): string {
+  const firstError = data.errors?.find((error) => error.description || error.message || error.code);
+
+  return data.message || firstError?.description || firstError?.message || firstError?.code || "Tap did not return a checkout URL (HTTP " + status + ")";
 }
 
 function json(data: unknown, status: number): Response {

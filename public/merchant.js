@@ -69,7 +69,7 @@ function parseAmount(value) {
 }
 
 function sanitiseGateway(value) {
-  return ['paytabs', 'tamara'].includes(value) ? value : 'paytabs'
+  return ['paytabs', 'tamara', 'tap'].includes(value) ? value : 'paytabs'
 }
 
 function setText(id, text) {

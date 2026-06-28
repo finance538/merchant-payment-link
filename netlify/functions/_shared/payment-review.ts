@@ -35,7 +35,7 @@ export type PaymentReview = {
   actualCode?: string;
   actualMessage?: string;
   actualAccepted: boolean;
-  source: "created" | "paytabs-return" | "paytabs-callback" | "tamara-return" | "tamara-webhook";
+  source: "created" | "paytabs-return" | "paytabs-callback" | "tamara-return" | "tamara-webhook" | "tap-return" | "tap-webhook";
   decision?: ManualDecision;
   notifiedAt?: string;
   notifications?: Record<string, string>;

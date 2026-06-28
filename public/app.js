@@ -72,7 +72,7 @@ function sanitiseCurrency(value) {
 
 function getSelectedGateway() {
   const selected = document.querySelector('input[name="gateway"]:checked')?.value
-  return ['paytabs', 'tamara'].includes(selected) ? selected : 'paytabs'
+  return ['paytabs', 'tamara', 'tap'].includes(selected) ? selected : 'paytabs'
 }
 
 function formatAmount(value, currencyCode) {
