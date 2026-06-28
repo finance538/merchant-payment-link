@@ -8,7 +8,7 @@ What it does:
 - No customer name field.
 - No customer email field.
 - No customer phone field.
-- Merchant page creates a link using amount only.
+- Public amount page lets the customer enter the amount only and starts checkout directly.
 - Netlify Function creates the checkout session server-side.
 - Demo mode works immediately after deployment.
 - PayTabs Hosted Payment Page is supported through server-side environment variables.
@@ -16,7 +16,7 @@ What it does:
 ## Pages
 
 - `/` or `/pay?amount=100&currency=SAR` - customer payment page
-- `/merchant` - merchant link generator
+- `/merchant` - public amount entry page that starts checkout directly
 - `/control` - merchant control panel for payment review
 - `/success.html` - success page
 - `/cancel.html` - cancelled payment page

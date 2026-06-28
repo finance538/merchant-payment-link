@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>صفحة التاجر</title>
+    <title>دفع مباشر</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -18,24 +18,17 @@
         <h1 id="merchantTitle"></h1>
         <p id="merchantBody" class="muted"></p>
 
-        <form id="linkForm" class="merchant-form">
+        <form id="paymentForm" class="merchant-form">
           <label for="amount" id="amountInputLabel"></label>
           <div class="amount-entry">
             <input id="amount" name="amount" inputmode="decimal" autocomplete="off" placeholder="100.00" required />
             <span>SAR</span>
           </div>
 
-          <button class="pay-button" type="submit" id="generateButton"></button>
+          <button class="pay-button" type="submit" id="payButton"></button>
         </form>
 
-        <div id="result" class="result-box" hidden>
-          <label id="linkLabel" for="generatedLink"></label>
-          <input id="generatedLink" readonly />
-          <div class="button-row">
-            <button id="copyButton" class="secondary-button" type="button"></button>
-            <a id="openButton" class="secondary-button" target="_blank" rel="noreferrer"></a>
-          </div>
-        </div>
+        <p id="merchantStatus" class="status" aria-live="polite"></p>
       </section>
     </main>
 
