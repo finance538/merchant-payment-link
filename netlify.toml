@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = "public"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[[redirects]]
+  from = "/pay"
+  to = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/merchant"
+  to = "/merchant.html"
+  status = 200
