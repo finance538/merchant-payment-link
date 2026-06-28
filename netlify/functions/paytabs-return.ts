@@ -1,4 +1,10 @@
 import type { Config } from "@netlify/functions";
+import {
+  notifyMerchantIfAway,
+  upsertPaymentReview,
+  waitForManualDecision,
+  type ManualDecision,
+} from "./_shared/payment-review";
 
 declare const Netlify: {
   env: {
@@ -20,24 +26,47 @@ export default async (req: Request) => {
   const responseMessage = getResponseMessage(resultData) || getResponseMessage(incomingData);
   const amount = pickString(resultData, ["cart_amount", "cartAmount", "amount"]) || requestUrl.searchParams.get("amount") || "";
   const currency = pickString(resultData, ["cart_currency", "cartCurrency", "currency"]) || requestUrl.searchParams.get("currency") || "SAR";
-  const isAccepted = responseStatus === "A";
-  const targetPath = isAccepted ? "/success.html" : "/cancel.html";
-  const redirectUrl = new URL(targetPath, origin);
+  const cartId = pickString(resultData, ["cart_id", "cartId"]) || requestUrl.searchParams.get("cart_id") || "";
+  const reviewId = cartId || transactionReference || createFallbackReviewId();
+  const actualAccepted = responseStatus === "A";
 
-  if (amount) redirectUrl.searchParams.set("amount", amount);
-  redirectUrl.searchParams.set("currency", normaliseCurrency(currency));
-  if (transactionReference) redirectUrl.searchParams.set("tran_ref", transactionReference);
-  if (responseStatus) redirectUrl.searchParams.set("status", responseStatus);
-  if (responseCode) redirectUrl.searchParams.set("code", responseCode);
-  if (responseMessage) redirectUrl.searchParams.set("message", responseMessage);
+  const review = await upsertPaymentReview({
+    id: reviewId,
+    cartId,
+    tranRef: transactionReference,
+    amount,
+    currency: normaliseCurrency(currency),
+    actualStatus: responseStatus,
+    actualCode: responseCode,
+    actualMessage: responseMessage,
+    actualAccepted,
+    source: "paytabs-return",
+  });
+
+  await notifyMerchantIfAway(review, origin);
+
+  const decision = await waitForManualDecision(reviewId, 10000);
+  const redirectUrl = buildRedirectUrl(origin, {
+    id: reviewId,
+    amount,
+    currency: normaliseCurrency(currency),
+    transactionReference,
+    responseStatus,
+    responseCode,
+    responseMessage,
+    actualAccepted,
+    decision,
+  });
 
   console.info(
     "PayTabs return",
     JSON.stringify({
+      reviewId,
       tranRef: transactionReference || null,
       status: responseStatus || null,
       code: responseCode || null,
-      accepted: isAccepted,
+      accepted: actualAccepted,
+      decision: decision?.status || "auto",
     }),
   );
 
@@ -48,6 +77,52 @@ export const config: Config = {
   path: "/api/paytabs-return",
   method: ["GET", "POST"],
 };
+
+function buildRedirectUrl(
+  origin: string,
+  data: {
+    id: string;
+    amount: string;
+    currency: string;
+    transactionReference: string;
+    responseStatus: string;
+    responseCode: string;
+    responseMessage: string;
+    actualAccepted: boolean;
+    decision: ManualDecision | null;
+  },
+): URL {
+  let targetPath = data.actualAccepted ? "/success.html" : "/cancel.html";
+  let message = data.responseMessage;
+
+  if (data.decision?.status === "success") {
+    targetPath = "/success.html";
+    message = data.decision.reason || message;
+  }
+
+  if (data.decision?.status === "failed") {
+    targetPath = "/cancel.html";
+    message = data.decision.reason || "لم تكتمل عملية الدفع بعد مراجعة التاجر.";
+  }
+
+  if (data.decision?.status === "pending") {
+    targetPath = "/pending.html";
+    message = data.decision.reason || "عملية الدفع قيد المراجعة.";
+  }
+
+  const redirectUrl = new URL(targetPath, origin);
+
+  if (data.amount) redirectUrl.searchParams.set("amount", data.amount);
+  redirectUrl.searchParams.set("currency", data.currency);
+  redirectUrl.searchParams.set("review_id", data.id);
+  if (data.transactionReference) redirectUrl.searchParams.set("tran_ref", data.transactionReference);
+  if (data.responseStatus) redirectUrl.searchParams.set("status", data.responseStatus);
+  if (data.responseCode) redirectUrl.searchParams.set("code", data.responseCode);
+  if (message) redirectUrl.searchParams.set("message", message);
+  if (data.decision) redirectUrl.searchParams.set("manual", data.decision.status);
+
+  return redirectUrl;
+}
 
 async function queryPayTabsTransaction(transactionReference: string): Promise<PayTabsPayload | null> {
   const profileId = Netlify.env.get("PAYTABS_PROFILE_ID");
@@ -177,4 +252,8 @@ function getPublicOrigin(req: Request): string {
   }
 
   return new URL(req.url).origin;
+}
+
+function createFallbackReviewId(): string {
+  return "review-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
 }

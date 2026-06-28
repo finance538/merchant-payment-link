@@ -1,4 +1,5 @@
 import type { Config, Context } from "@netlify/functions";
+import { upsertPaymentReview } from "./_shared/payment-review";
 
 declare const Netlify: {
   env: {
@@ -24,7 +25,7 @@ type PayTabsCheckoutResponse = {
   code?: string | number;
 };
 
-export default async (req: Request, _context: Context) => {
+export default async (req: Request, context: Context) => {
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -112,6 +113,17 @@ export default async (req: Request, _context: Context) => {
     const callbackUrl = Netlify.env.get("PAYTABS_CALLBACK_URL") || origin + "/api/paytabs-callback";
     const returnUrl = origin + "/api/paytabs-return?amount=" + encodeURIComponent(amount.toFixed(2)) + "&currency=" + currency + "&cart_id=" + encodeURIComponent(cartId);
     const cartDescription = Netlify.env.get("PAYTABS_CART_DESCRIPTION") || "Merchant Payment Link";
+
+    context.waitUntil(
+      upsertPaymentReview({
+        id: cartId,
+        cartId,
+        amount: amount.toFixed(2),
+        currency,
+        actualAccepted: false,
+        source: "created",
+      }).catch((error) => console.error("Unable to create payment review", error)),
+    );
 
     const payTabsResponse = await fetch(apiUrl, {
       method: "POST",

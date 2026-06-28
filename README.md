@@ -17,8 +17,10 @@ What it does:
 
 - `/` or `/pay?amount=100&currency=SAR` - customer payment page
 - `/merchant` - merchant link generator
+- `/control` - merchant control panel for payment review
 - `/success.html` - success page
 - `/cancel.html` - cancelled payment page
+- `/pending.html` - pending manual review page
 
 ## Netlify setup
 
@@ -51,11 +53,18 @@ For PayTabs, add these variables in Netlify:
 - `PAYTABS_SERVER_KEY=your_paytabs_server_key`
 - `PAYTABS_API_URL=https://secure.paytabs.sa/payment/request`
 - `PUBLIC_SITE_URL=https://merchant-payment-link.netlify.app`
+- `CONTROL_PANEL_TOKEN=use_a_private_random_token`
 
 Optional PayTabs variables:
 
 - `PAYTABS_CART_DESCRIPTION=Merchant Payment Link`
-- `PAYTABS_CALLBACK_URL=https://merchant-payment-link.netlify.app/success.html`
+- `PAYTABS_CALLBACK_URL=https://merchant-payment-link.netlify.app/api/paytabs-callback`
+- `PAYTABS_QUERY_URL=https://secure.paytabs.sa/payment/query`
+
+Optional Telegram variables for merchant alerts:
+
+- `TELEGRAM_BOT_TOKEN=your_telegram_bot_token`
+- `TELEGRAM_CHAT_ID=your_telegram_chat_id`
 
 For a generic JSON provider instead of PayTabs:
 

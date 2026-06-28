@@ -1,10 +1,12 @@
 import type { Config } from "@netlify/functions";
+import { upsertPaymentReview } from "./_shared/payment-review";
 
 type PayTabsPayload = Record<string, unknown>;
 
 export default async (req: Request) => {
   const data = await readRequestData(req);
   const transactionReference = pickString(data, ["tran_ref", "tranRef", "transaction_ref", "transactionReference"]);
+  const cartId = pickString(data, ["cart_id", "cartId"]);
   const responseStatus = pickString(data, [
     "payment_result.response_status",
     "paymentResult.responseStatus",
@@ -19,10 +21,36 @@ export default async (req: Request) => {
     "responseCode",
     "respCode",
   ]);
+  const responseMessage = pickString(data, [
+    "payment_result.response_message",
+    "paymentResult.responseMessage",
+    "response_message",
+    "responseMessage",
+    "respMessage",
+  ]);
+  const amount = pickString(data, ["cart_amount", "cartAmount", "amount"]);
+  const currency = normaliseCurrency(pickString(data, ["cart_currency", "cartCurrency", "currency"]) || "SAR");
+  const reviewId = cartId || transactionReference;
+
+  if (reviewId) {
+    await upsertPaymentReview({
+      id: reviewId,
+      cartId,
+      tranRef: transactionReference,
+      amount,
+      currency,
+      actualStatus: responseStatus,
+      actualCode: responseCode,
+      actualMessage: responseMessage,
+      actualAccepted: responseStatus === "A",
+      source: "paytabs-callback",
+    });
+  }
 
   console.info(
     "PayTabs callback",
     JSON.stringify({
+      reviewId: reviewId || null,
       tranRef: transactionReference || null,
       status: responseStatus || null,
       code: responseCode || null,
@@ -90,4 +118,10 @@ function pickPath(data: PayTabsPayload, path: string): unknown {
 
     return undefined;
   }, data);
+}
+
+function normaliseCurrency(value: string): string {
+  const currency = value.toUpperCase();
+
+  return /^[A-Z]{3}$/.test(currency) ? currency : "SAR";
 }

@@ -15,3 +15,8 @@
   from = "/merchant"
   to = "/merchant.html"
   status = 200
+
+[[redirects]]
+  from = "/control"
+  to = "/control.html"
+  status = 200

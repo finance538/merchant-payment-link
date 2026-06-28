@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pending</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="center-message">
+      <section class="message-card">
+        <h1 id="title"></h1>
+        <p id="body" class="muted"></p>
+        <p id="details" class="muted"></p>
+        <a href="/merchant.html" id="back"></a>
+      </section>
+    </main>
+    <script>
+      const params = new URLSearchParams(window.location.search)
+      const amount = params.get('amount')
+      const currency = params.get('currency') || 'SAR'
+      const reference = params.get('tran_ref')
+      const message = params.get('message')
+      document.getElementById('title').textContent = 'الدفع قيد المراجعة'
+      document.getElementById('body').textContent = message || 'سنراجع العملية ونؤكد حالتها قريباً.'
+      const details = []
+      if (amount) details.push('المبلغ: ' + formatAmount(amount, currency))
+      if (reference) details.push('رقم العملية: ' + reference)
+      document.getElementById('details').textContent = details.join(' - ')
+      document.getElementById('back').textContent = 'الرجوع لصفحة التاجر'
+      function formatAmount(value, currencyCode) {
+        const number = Number(String(value).replace(',', '.'))
+        if (!Number.isFinite(number)) return value + ' ' + currencyCode
+        try {
+          return new Intl.NumberFormat('ar-SA', { style: 'currency', currency: currencyCode }).format(number)
+        } catch {
+          return number.toFixed(2) + ' ' + currencyCode
+        }
+      }
+    </script>
+  </body>
+</html>

@@ -248,6 +248,186 @@ label {
   font-weight: 800;
 }
 
+.control-shell {
+  width: min(100%, 1080px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: 24px 16px;
+}
+
+.control-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-top: 4px solid var(--green-dark);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  padding: clamp(18px, 4vw, 34px);
+}
+
+.control-header,
+.control-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.control-header h1 {
+  margin: 0;
+  color: var(--green-dark);
+  font-size: clamp(30px, 5vw, 44px);
+  letter-spacing: 0;
+}
+
+.control-auth {
+  display: grid;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.token-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+}
+
+.token-row input {
+  min-width: 0;
+  min-height: 50px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 14px;
+}
+
+.compact-button {
+  width: auto;
+  min-height: 50px;
+}
+
+.control-app {
+  display: grid;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.reviews-list {
+  display: grid;
+  gap: 12px;
+}
+
+.review-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 340px);
+  gap: 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 18px;
+  background: #fbfcfb;
+}
+
+.review-item.is-highlighted {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 3px rgba(201, 162, 75, 0.18);
+}
+
+.review-main {
+  display: grid;
+  gap: 8px;
+}
+
+.review-main h2 {
+  margin: 4px 0;
+  color: var(--green-dark);
+  font-size: clamp(24px, 4vw, 34px);
+  letter-spacing: 0;
+}
+
+.review-main p {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.review-actions {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.review-actions select {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #fff;
+  font: inherit;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  margin: 0 0 6px 6px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--green-dark);
+  background: #edf4f1;
+}
+
+.status-pill.is-ok {
+  color: #0f5132;
+  background: #d9f3e6;
+}
+
+.status-pill.is-warn {
+  color: #7a4a00;
+  background: #fff0cc;
+}
+
+.status-pill.is-manual {
+  color: #243b53;
+  background: #e5eef8;
+}
+
+.decision-button {
+  border: 0;
+  border-radius: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+  color: #fff;
+  font: inherit;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.decision-button.success {
+  background: #146c43;
+}
+
+.decision-button.failed {
+  background: #9f1239;
+}
+
+.decision-button.pending {
+  background: #9a6700;
+}
+
+.decision-button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.empty-state {
+  padding: 20px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  color: var(--muted);
+  text-align: center;
+}
+
 @media (max-width: 560px) {
   .page-shell,
   .merchant-shell {
@@ -256,5 +436,14 @@ label {
 
   .button-row {
     display: grid;
+  }
+
+  .token-row,
+  .review-item {
+    grid-template-columns: 1fr;
+  }
+
+  .control-shell {
+    padding: 14px;
   }
 }

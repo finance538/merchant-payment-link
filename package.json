@@ -8,6 +8,7 @@
     "dev": "netlify dev"
   },
   "dependencies": {
+    "@netlify/blobs": "latest",
     "@netlify/functions": "latest"
   },
   "devDependencies": {
