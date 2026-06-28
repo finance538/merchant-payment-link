@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Success</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="center-message">
+      <section class="message-card">
+        <h1 id="title"></h1>
+        <p id="body" class="muted"></p>
+        <a href="/merchant.html" id="back"></a>
+      </section>
+    </main>
+    <script>
+      document.getElementById('title').textContent = 'تم الدفع بنجاح'
+      document.getElementById('body').textContent = 'شكرًا لك. يمكنك إغلاق هذه الصفحة.'
+      document.getElementById('back').textContent = 'إنشاء رابط جديد'
+    </script>
+  </body>
+</html>
