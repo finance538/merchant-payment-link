@@ -19,7 +19,7 @@ type DecisionPayload = {
   category?: string;
 };
 
-const allowedStatuses = new Set<ManualDecisionStatus>(["success", "failed", "pending"]);
+const allowedStatuses = new Set<ManualDecisionStatus>(["success", "failed", "pending", "error"]);
 
 export default async (req: Request) => {
   const authError = authorise(req);

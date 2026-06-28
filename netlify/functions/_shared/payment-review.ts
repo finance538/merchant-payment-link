@@ -6,7 +6,7 @@ declare const Netlify: {
   };
 };
 
-export type ManualDecisionStatus = "success" | "failed" | "pending";
+export type ManualDecisionStatus = "success" | "failed" | "pending" | "error";
 
 export type ManualDecision = {
   status: ManualDecisionStatus;
@@ -19,6 +19,11 @@ export type PaymentReview = {
   id: string;
   cartId?: string;
   tranRef?: string;
+  customerId?: string;
+  customerCountry?: string;
+  cardType?: string;
+  cardScheme?: string;
+  cardCountry?: string;
   amount?: string;
   currency: string;
   actualStatus?: string;
@@ -150,11 +155,14 @@ export async function notifyMerchantIfAway(review: PaymentReview, origin: string
   controlUrl.searchParams.set("cart_id", review.id);
 
   const text = [
-    "عملية دفع تحتاج مراجعة",
-    `المبلغ: ${review.amount || "-"} ${review.currency}`,
-    `حالة PayTabs: ${review.actualStatus || "-"}${review.actualMessage ? ` - ${review.actualMessage}` : ""}`,
-    `رقم العملية: ${review.tranRef || "-"}`,
-    `لوحة التاجر: ${controlUrl.toString()}`,
+    "Payment needs review",
+    `Amount: ${review.amount || "-"} ${review.currency}`,
+    `Customer ID: ${review.customerId || review.id}`,
+    `Country: ${review.customerCountry || review.cardCountry || "-"}`,
+    `Card: ${review.cardType || review.cardScheme || "-"}`,
+    `PayTabs: ${review.actualStatus || "-"}${review.actualMessage ? ` - ${review.actualMessage}` : ""}`,
+    `Transaction: ${review.tranRef || "-"}`,
+    `Control panel: ${controlUrl.toString()}`,
   ].join("\n");
 
   const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -166,6 +174,9 @@ export async function notifyMerchantIfAway(review: PaymentReview, origin: string
       chat_id: chatId,
       text,
       disable_web_page_preview: true,
+      reply_markup: {
+        inline_keyboard: [[{ text: "Open control panel", url: controlUrl.toString() }]],
+      },
     }),
   });
 

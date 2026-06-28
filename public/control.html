@@ -12,16 +12,19 @@
         <header class="control-header">
           <div>
             <p class="small-kicker">Merchant Payment Link</p>
-            <h1>لوحة التاجر</h1>
+            <h1 id="controlTitle">لوحة التاجر</h1>
           </div>
-          <a class="secondary-button" href="/merchant.html">رابط جديد</a>
+          <div class="control-header-actions">
+            <button id="languageToggle" class="secondary-button" type="button">English</button>
+            <a id="newPaymentLink" class="secondary-button" href="/merchant.html">رابط جديد</a>
+          </div>
         </header>
 
         <form id="authForm" class="control-auth">
-          <label for="tokenInput">رمز اللوحة</label>
+          <label id="tokenLabel" for="tokenInput">رمز اللوحة</label>
           <div class="token-row">
             <input id="tokenInput" type="password" autocomplete="current-password" />
-            <button class="pay-button compact-button" type="submit">دخول</button>
+            <button id="loginButton" class="pay-button compact-button" type="submit">دخول</button>
           </div>
         </form>
 

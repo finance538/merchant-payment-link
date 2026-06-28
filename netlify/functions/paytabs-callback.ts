@@ -31,12 +31,14 @@ export default async (req: Request) => {
   const amount = pickString(data, ["cart_amount", "cartAmount", "amount"]);
   const currency = normaliseCurrency(pickString(data, ["cart_currency", "cartCurrency", "currency"]) || "SAR");
   const reviewId = cartId || transactionReference;
+  const metadata = extractReviewMetadata(data, cartId || reviewId);
 
   if (reviewId) {
     await upsertPaymentReview({
       id: reviewId,
       cartId,
       tranRef: transactionReference,
+      ...metadata,
       amount,
       currency,
       actualStatus: responseStatus,
@@ -120,8 +122,39 @@ function pickPath(data: PayTabsPayload, path: string): unknown {
   }, data);
 }
 
+function extractReviewMetadata(data: PayTabsPayload, fallbackCustomerId: string): {
+  customerId?: string;
+  customerCountry?: string;
+  cardType?: string;
+  cardScheme?: string;
+  cardCountry?: string;
+} {
+  return {
+    customerId: pickString(data, ["customer_id", "customerId", "customer.id", "customerDetails.id"]) || fallbackCustomerId,
+    customerCountry: normaliseCountry(
+      pickString(data, [
+        "customer_country",
+        "customerCountry",
+        "customer.country",
+        "customerDetails.country",
+        "billing_details.country",
+        "billingDetails.country",
+      ]),
+    ),
+    cardType: pickString(data, ["payment_info.card_type", "paymentInfo.cardType", "card_type", "cardType", "payment_info.payment_method"]),
+    cardScheme: pickString(data, ["payment_info.card_scheme", "paymentInfo.cardScheme", "card_scheme", "cardScheme", "payment_info.card_brand"]),
+    cardCountry: normaliseCountry(pickString(data, ["payment_info.card_country", "paymentInfo.cardCountry", "card_country", "cardCountry"])),
+  };
+}
+
 function normaliseCurrency(value: string): string {
   const currency = value.toUpperCase();
 
   return /^[A-Z]{3}$/.test(currency) ? currency : "SAR";
+}
+
+function normaliseCountry(value: string): string | undefined {
+  if (!value) return undefined;
+
+  return value.toUpperCase();
 }

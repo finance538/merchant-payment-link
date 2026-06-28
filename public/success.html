@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -20,18 +20,18 @@
       const amount = params.get('amount')
       const currency = params.get('currency') || 'SAR'
       const reference = params.get('tran_ref')
-      document.getElementById('title').textContent = 'تم الدفع بنجاح'
-      document.getElementById('body').textContent = 'شكراً لك. تمت معالجة العملية بنجاح.'
+      document.getElementById('title').textContent = 'Payment successful'
+      document.getElementById('body').textContent = 'Thank you. Your payment was processed successfully.'
       const details = []
-      if (amount) details.push('المبلغ: ' + formatAmount(amount, currency))
-      if (reference) details.push('رقم العملية: ' + reference)
+      if (amount) details.push('Amount: ' + formatAmount(amount, currency))
+      if (reference) details.push('Transaction: ' + reference)
       document.getElementById('details').textContent = details.join(' - ')
-      document.getElementById('back').textContent = 'إنشاء رابط جديد'
+      document.getElementById('back').textContent = 'Start another payment'
       function formatAmount(value, currencyCode) {
         const number = Number(String(value).replace(',', '.'))
         if (!Number.isFinite(number)) return value + ' ' + currencyCode
         try {
-          return new Intl.NumberFormat('ar-SA', { style: 'currency', currency: currencyCode }).format(number)
+          return new Intl.NumberFormat('en-US', { style: 'currency', currency: currencyCode }).format(number)
         } catch {
           return number.toFixed(2) + ' ' + currencyCode
         }

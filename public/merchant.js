@@ -1,13 +1,13 @@
 const T = {
-  title: 'دفع مباشر',
-  kicker: 'دفع آمن',
-  heading: 'أدخل المبلغ للدفع',
-  body: 'اكتب المبلغ فقط وسيتم تحويلك مباشرة إلى صفحة الدفع الآمنة. لا توجد حقول اسم أو بريد إلكتروني أو رقم جوال.',
-  amount: 'المبلغ',
-  pay: 'المتابعة للدفع',
-  loading: 'جاري تحويلك إلى صفحة الدفع...',
-  invalid: 'المبلغ غير صحيح.',
-  failed: 'تعذر بدء الدفع. حاول مرة أخرى.'
+  title: 'Direct Payment',
+  kicker: 'Secure payment',
+  heading: 'Enter the amount',
+  body: 'Enter the amount only. You will be redirected to the secure payment page. No name, email, or phone number is required.',
+  amount: 'Amount',
+  pay: 'Continue to payment',
+  loading: 'Redirecting to the payment page...',
+  invalid: 'Invalid amount.',
+  failed: 'Unable to start payment. Please try again.'
 }
 
 document.title = T.title

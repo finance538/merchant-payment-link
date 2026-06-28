@@ -273,6 +273,12 @@ label {
   flex-wrap: wrap;
 }
 
+.control-header-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .control-header h1 {
   margin: 0;
   color: var(--green-dark);
@@ -348,6 +354,15 @@ label {
   overflow-wrap: anywhere;
 }
 
+.review-meta {
+  display: grid;
+  gap: 5px;
+}
+
+.review-meta strong {
+  color: var(--green-dark);
+}
+
 .review-actions {
   display: grid;
   gap: 12px;
@@ -360,6 +375,17 @@ label {
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0 12px;
+  background: #fff;
+  font: inherit;
+}
+
+.reason-input {
+  width: 100%;
+  resize: vertical;
+  min-height: 78px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
   background: #fff;
   font: inherit;
 }
@@ -383,6 +409,11 @@ label {
 }
 
 .status-pill.is-warn {
+  color: #7a4a00;
+  background: #fff0cc;
+}
+
+.status-pill.is-pending {
   color: #7a4a00;
   background: #fff0cc;
 }
@@ -413,6 +444,10 @@ label {
 
 .decision-button.pending {
   background: #9a6700;
+}
+
+.decision-button.error {
+  background: #5b21b6;
 }
 
 .decision-button:disabled {

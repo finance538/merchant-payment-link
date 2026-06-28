@@ -1,11 +1,11 @@
 const T = {
-  title: 'رابط دفع مباشر',
-  amountLabel: 'المبلغ المطلوب',
-  noAmount: 'غير محدد',
+  title: 'Direct Payment',
+  amountLabel: 'Amount due',
+  noAmount: 'Not set',
   payNow: 'Pay Now',
-  loading: 'جاري إنشاء جلسة الدفع...',
-  invalid: 'المبلغ غير صحيح.',
-  failed: 'تعذر بدء الدفع. تحقق من إعدادات بوابة الدفع.'
+  loading: 'Creating secure payment session...',
+  invalid: 'Invalid amount.',
+  failed: 'Unable to start payment. Please try again.'
 }
 
 document.title = T.title
@@ -70,7 +70,7 @@ function sanitiseCurrency(value) {
 
 function formatAmount(value, currencyCode) {
   try {
-    return new Intl.NumberFormat('ar-SA', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: currencyCode
     }).format(value)

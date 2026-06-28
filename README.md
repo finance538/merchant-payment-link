@@ -4,6 +4,7 @@ A small Arabic RTL payment-link site for Netlify.
 
 What it does:
 
+- Client pages are English-only.
 - Client page shows only the amount and a Pay Now button.
 - No customer name field.
 - No customer email field.
@@ -12,6 +13,8 @@ What it does:
 - Netlify Function creates the checkout session server-side.
 - Demo mode works immediately after deployment.
 - PayTabs Hosted Payment Page is supported through server-side environment variables.
+- Merchant review waits up to 20 seconds, except rejected PayTabs payments which are rejected automatically.
+- Telegram alerts can send a direct control-panel link for the specific payment.
 
 ## Pages
 

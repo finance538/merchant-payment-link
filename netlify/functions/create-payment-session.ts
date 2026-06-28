@@ -118,6 +118,7 @@ export default async (req: Request, context: Context) => {
       upsertPaymentReview({
         id: cartId,
         cartId,
+        customerId: cartId,
         amount: amount.toFixed(2),
         currency,
         actualAccepted: false,

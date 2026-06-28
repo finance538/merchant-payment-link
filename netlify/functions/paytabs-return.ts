@@ -29,11 +29,15 @@ export default async (req: Request) => {
   const cartId = pickString(resultData, ["cart_id", "cartId"]) || requestUrl.searchParams.get("cart_id") || "";
   const reviewId = cartId || transactionReference || createFallbackReviewId();
   const actualAccepted = responseStatus === "A";
+  const actualPending = isPendingResponse(responseStatus);
+  const autoRejected = isRejectedResponse(responseStatus);
+  const metadata = extractReviewMetadata(resultData, cartId || reviewId);
 
   const review = await upsertPaymentReview({
     id: reviewId,
     cartId,
     tranRef: transactionReference,
+    ...metadata,
     amount,
     currency: normaliseCurrency(currency),
     actualStatus: responseStatus,
@@ -45,7 +49,7 @@ export default async (req: Request) => {
 
   await notifyMerchantIfAway(review, origin);
 
-  const decision = await waitForManualDecision(reviewId, 10000);
+  const decision = autoRejected ? null : await waitForManualDecision(reviewId, 20000);
   const redirectUrl = buildRedirectUrl(origin, {
     id: reviewId,
     amount,
@@ -55,6 +59,7 @@ export default async (req: Request) => {
     responseCode,
     responseMessage,
     actualAccepted,
+    actualPending,
     decision,
   });
 
@@ -66,6 +71,7 @@ export default async (req: Request) => {
       status: responseStatus || null,
       code: responseCode || null,
       accepted: actualAccepted,
+      autoRejected,
       decision: decision?.status || "auto",
     }),
   );
@@ -89,10 +95,11 @@ function buildRedirectUrl(
     responseCode: string;
     responseMessage: string;
     actualAccepted: boolean;
+    actualPending: boolean;
     decision: ManualDecision | null;
   },
 ): URL {
-  let targetPath = data.actualAccepted ? "/success.html" : "/cancel.html";
+  let targetPath = data.actualAccepted ? "/success.html" : data.actualPending ? "/pending.html" : "/cancel.html";
   let message = data.responseMessage;
 
   if (data.decision?.status === "success") {
@@ -102,12 +109,17 @@ function buildRedirectUrl(
 
   if (data.decision?.status === "failed") {
     targetPath = "/cancel.html";
-    message = data.decision.reason || "لم تكتمل عملية الدفع بعد مراجعة التاجر.";
+    message = data.decision.reason || "The payment was not completed after merchant review.";
   }
 
   if (data.decision?.status === "pending") {
     targetPath = "/pending.html";
-    message = data.decision.reason || "عملية الدفع قيد المراجعة.";
+    message = data.decision.reason || "The payment is under review.";
+  }
+
+  if (data.decision?.status === "error") {
+    targetPath = "/error.html";
+    message = data.decision.reason || "A network or payment processing issue occurred.";
   }
 
   const redirectUrl = new URL(targetPath, origin);
@@ -217,6 +229,41 @@ function getResponseMessage(data: PayTabsPayload): string {
   ]);
 }
 
+function isRejectedResponse(status: string): boolean {
+  if (!status) return false;
+
+  return !["A", "H", "P"].includes(status);
+}
+
+function isPendingResponse(status: string): boolean {
+  return ["H", "P"].includes(status);
+}
+
+function extractReviewMetadata(data: PayTabsPayload, fallbackCustomerId: string): {
+  customerId?: string;
+  customerCountry?: string;
+  cardType?: string;
+  cardScheme?: string;
+  cardCountry?: string;
+} {
+  return {
+    customerId: pickString(data, ["customer_id", "customerId", "customer.id", "customerDetails.id"]) || fallbackCustomerId,
+    customerCountry: normaliseCountry(
+      pickString(data, [
+        "customer_country",
+        "customerCountry",
+        "customer.country",
+        "customerDetails.country",
+        "billing_details.country",
+        "billingDetails.country",
+      ]),
+    ),
+    cardType: pickString(data, ["payment_info.card_type", "paymentInfo.cardType", "card_type", "cardType", "payment_info.payment_method"]),
+    cardScheme: pickString(data, ["payment_info.card_scheme", "paymentInfo.cardScheme", "card_scheme", "cardScheme", "payment_info.card_brand"]),
+    cardCountry: normaliseCountry(pickString(data, ["payment_info.card_country", "paymentInfo.cardCountry", "card_country", "cardCountry"])),
+  };
+}
+
 function pickString(data: PayTabsPayload, paths: string[]): string {
   for (const path of paths) {
     const value = pickPath(data, path);
@@ -242,6 +289,12 @@ function normaliseCurrency(value: string): string {
   const currency = value.toUpperCase();
 
   return /^[A-Z]{3}$/.test(currency) ? currency : "SAR";
+}
+
+function normaliseCountry(value: string): string | undefined {
+  if (!value) return undefined;
+
+  return value.toUpperCase();
 }
 
 function getPublicOrigin(req: Request): string {

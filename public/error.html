@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Cancelled</title>
+    <title>Payment issue</title>
     <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
@@ -21,8 +21,8 @@
       const currency = params.get('currency') || 'SAR'
       const reference = params.get('tran_ref')
       const message = params.get('message')
-      document.getElementById('title').textContent = 'Payment not completed'
-      document.getElementById('body').textContent = message || 'No amount was charged. Please try again or use another card.'
+      document.getElementById('title').textContent = 'Payment issue'
+      document.getElementById('body').textContent = message || 'A network or payment processing issue occurred. Please try again shortly.'
       const details = []
       if (amount) details.push('Amount: ' + formatAmount(amount, currency))
       if (reference) details.push('Transaction: ' + reference)
