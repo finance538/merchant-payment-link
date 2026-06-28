@@ -11,13 +11,32 @@
       <section class="message-card">
         <h1 id="title"></h1>
         <p id="body" class="muted"></p>
+        <p id="details" class="muted"></p>
         <a href="/merchant.html" id="back"></a>
       </section>
     </main>
     <script>
-      document.getElementById('title').textContent = 'تم إلغاء الدفع'
-      document.getElementById('body').textContent = 'لم يتم خصم أي مبلغ.'
+      const params = new URLSearchParams(window.location.search)
+      const amount = params.get('amount')
+      const currency = params.get('currency') || 'SAR'
+      const reference = params.get('tran_ref')
+      const message = params.get('message')
+      document.getElementById('title').textContent = 'لم تكتمل عملية الدفع'
+      document.getElementById('body').textContent = message || 'لم يتم خصم أي مبلغ. يمكن للعميل المحاولة مرة أخرى أو استخدام بطاقة أخرى.'
+      const details = []
+      if (amount) details.push('المبلغ: ' + formatAmount(amount, currency))
+      if (reference) details.push('رقم العملية: ' + reference)
+      document.getElementById('details').textContent = details.join(' - ')
       document.getElementById('back').textContent = 'الرجوع لصفحة التاجر'
+      function formatAmount(value, currencyCode) {
+        const number = Number(String(value).replace(',', '.'))
+        if (!Number.isFinite(number)) return value + ' ' + currencyCode
+        try {
+          return new Intl.NumberFormat('ar-SA', { style: 'currency', currency: currencyCode }).format(number)
+        } catch {
+          return number.toFixed(2) + ' ' + currencyCode
+        }
+      }
     </script>
   </body>
 </html>
