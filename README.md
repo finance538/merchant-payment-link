@@ -70,6 +70,7 @@ For Tamara, add these variables in Netlify:
 - `TAMARA_API_URL=https://api.tamara.co`
 - `TAMARA_API_TOKEN=your_tamara_merchant_key`
 - `TAMARA_NOTIFICATION_TOKEN=your_tamara_notification_token`
+- `TAMARA_DEVICE_ID=your_tamara_pos_device_id`
 - `TAMARA_PLATFORM=ONESHOT_POS_QR`
 - `TAMARA_LOCALE=en_US`
 - `PUBLIC_SITE_URL=https://merchant-payment-link.netlify.app`

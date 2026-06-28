@@ -178,9 +178,14 @@ export default async (req: Request, context: Context) => {
     const apiBaseUrl = (Netlify.env.get("TAMARA_API_URL") || "https://api.tamara.co").replace(/\/$/, "");
     const platform = Netlify.env.get("TAMARA_PLATFORM") || "ONESHOT_POS_QR";
     const locale = Netlify.env.get("TAMARA_LOCALE") || "en_US";
+    const deviceId = Netlify.env.get("TAMARA_DEVICE_ID");
 
     if (!apiToken) {
       return json({ error: "TAMARA_API_TOKEN is missing" }, 500);
+    }
+
+    if (!deviceId) {
+      return json({ error: "TAMARA_DEVICE_ID is missing. Add your Tamara POS device id in Netlify environment variables." }, 500);
     }
 
     const cartId = createCartId();
@@ -209,6 +214,7 @@ export default async (req: Request, context: Context) => {
       headers: {
         "Content-Type": "application/json",
         Authorization: "Bearer " + apiToken,
+        "X-Device-Id": deviceId,
       },
       body: JSON.stringify({
         amount: {
