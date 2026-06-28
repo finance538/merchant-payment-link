@@ -44,6 +44,10 @@ const i18n = {
     error: 'مشكلة بالشبكة',
     saving: 'جار الحفظ',
     saveFailed: 'تعذر حفظ القرار',
+    testTelegram: '\u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
+    telegramTesting: '\u062c\u0627\u0631\u064a \u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
+    telegramOk: '\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629 \u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
+    telegramFailed: '\u0641\u0634\u0644 \u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
     successReason: 'Payment confirmed.',
     failedReason: 'Payment was not completed.',
     pendingReason: 'Payment is under review.',
@@ -89,6 +93,10 @@ const i18n = {
     error: 'Network issue',
     saving: 'Saving',
     saveFailed: 'Unable to save decision',
+    testTelegram: 'Test Telegram',
+    telegramTesting: 'Testing Telegram',
+    telegramOk: 'Telegram test message sent',
+    telegramFailed: 'Telegram test failed',
     successReason: 'Payment confirmed.',
     failedReason: 'Payment was not completed.',
     pendingReason: 'Payment is under review.',
@@ -102,6 +110,7 @@ const controlApp = document.getElementById('controlApp')
 const reviewsList = document.getElementById('reviewsList')
 const panelStatus = document.getElementById('panelStatus')
 const refreshButton = document.getElementById('refreshButton')
+const telegramTestButton = document.getElementById('telegramTestButton')
 const languageToggle = document.getElementById('languageToggle')
 
 applyLanguage()
@@ -132,6 +141,7 @@ languageToggle.addEventListener('click', () => {
 })
 
 refreshButton.addEventListener('click', loadReviews)
+telegramTestButton.addEventListener('click', testTelegram)
 setInterval(() => {
   if (token) loadReviews()
 }, 3000)
@@ -145,6 +155,7 @@ function applyLanguage() {
   document.getElementById('tokenLabel').textContent = t.token
   document.getElementById('loginButton').textContent = t.login
   refreshButton.textContent = t.refresh
+  telegramTestButton.textContent = t.testTelegram
   languageToggle.textContent = t.switchLang
   panelStatus.textContent = t.connected
 }
@@ -266,6 +277,28 @@ async function decide(id, status) {
   } catch (error) {
     console.error(error)
     panelStatus.textContent = error.message || t.saveFailed
+  }
+}
+
+async function testTelegram() {
+  const t = i18n[lang]
+  panelStatus.textContent = t.telegramTesting
+  telegramTestButton.disabled = true
+
+  try {
+    const response = await fetch('/api/payment-control?token=' + encodeURIComponent(token), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'test-telegram' })
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data.ok === false) throw new Error(data.error || t.telegramFailed)
+    panelStatus.textContent = t.telegramOk
+  } catch (error) {
+    console.error(error)
+    panelStatus.textContent = `${t.telegramFailed}: ${error.message || ''}`.trim()
+  } finally {
+    telegramTestButton.disabled = false
   }
 }
 
