@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Direct payment link" />
+    <title>رابط دفع مباشر</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="page-shell pay-page">
+      <section class="pay-card" aria-labelledby="amountLabel">
+        <div class="brand-line">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>Merchant Payment Link</span>
+        </div>
+
+        <div class="amount-box">
+          <span id="amountLabel"></span>
+          <strong id="amountValue"></strong>
+        </div>
+
+        <button id="payButton" class="pay-button" type="button">
+          <span id="payButtonText">Pay Now</span>
+        </button>
+
+        <p id="status" class="status" aria-live="polite"></p>
+      </section>
+    </main>
+
+    <script type="module" src="/app.js"></script>
+  </body>
+</html>
