@@ -109,7 +109,8 @@ export default async (req: Request, _context: Context) => {
     }
 
     const cartId = createCartId();
-    const callbackUrl = Netlify.env.get("PAYTABS_CALLBACK_URL") || successUrl;
+    const callbackUrl = Netlify.env.get("PAYTABS_CALLBACK_URL") || origin + "/api/paytabs-callback";
+    const returnUrl = origin + "/api/paytabs-return?amount=" + encodeURIComponent(amount.toFixed(2)) + "&currency=" + currency + "&cart_id=" + encodeURIComponent(cartId);
     const cartDescription = Netlify.env.get("PAYTABS_CART_DESCRIPTION") || "Merchant Payment Link";
 
     const payTabsResponse = await fetch(apiUrl, {
@@ -127,7 +128,7 @@ export default async (req: Request, _context: Context) => {
         cart_currency: currency,
         cart_amount: amount.toFixed(2),
         callback: callbackUrl,
-        return: successUrl,
+        return: returnUrl,
         hide_shipping: true,
       }),
     });
