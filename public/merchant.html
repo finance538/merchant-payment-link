@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>صفحة التاجر</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <main class="merchant-shell">
+      <section class="merchant-card">
+        <div class="brand-line">
+          <span class="brand-mark" aria-hidden="true"></span>
+          <span>Merchant Payment Link</span>
+        </div>
+
+        <p class="small-kicker" id="merchantKicker"></p>
+        <h1 id="merchantTitle"></h1>
+        <p id="merchantBody" class="muted"></p>
+
+        <form id="linkForm" class="merchant-form">
+          <label for="amount" id="amountInputLabel"></label>
+          <div class="amount-entry">
+            <input id="amount" name="amount" inputmode="decimal" autocomplete="off" placeholder="100.00" required />
+            <span>SAR</span>
+          </div>
+
+          <button class="pay-button" type="submit" id="generateButton"></button>
+        </form>
+
+        <div id="result" class="result-box" hidden>
+          <label id="linkLabel" for="generatedLink"></label>
+          <input id="generatedLink" readonly />
+          <div class="button-row">
+            <button id="copyButton" class="secondary-button" type="button"></button>
+            <a id="openButton" class="secondary-button" target="_blank" rel="noreferrer"></a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/merchant.js"></script>
+  </body>
+</html>
