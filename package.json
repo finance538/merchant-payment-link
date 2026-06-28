@@ -1,0 +1,19 @@
+{
+  "name": "merchant-payment-link",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ./scripts/build.mjs",
+    "dev": "netlify dev"
+  },
+  "dependencies": {
+    "@netlify/functions": "latest"
+  },
+  "devDependencies": {
+    "typescript": "latest"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
