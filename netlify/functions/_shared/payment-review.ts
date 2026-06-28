@@ -143,14 +143,17 @@ export async function isPanelActive(thresholdMs = 25000): Promise<boolean> {
 }
 
 export async function notifyMerchantIfAway(review: PaymentReview, origin: string): Promise<PaymentReview> {
-  if (await isPanelActive()) return review;
   if (review.notifiedAt) return review;
 
   const botToken = Netlify.env.get("TELEGRAM_BOT_TOKEN");
   const chatId = Netlify.env.get("TELEGRAM_CHAT_ID");
 
-  if (!botToken || !chatId) return review;
+  if (!botToken || !chatId) {
+    console.warn("Telegram notification skipped: missing bot token or chat id");
+    return review;
+  }
 
+  const panelActive = await isPanelActive();
   const controlUrl = new URL("/control.html", origin);
   controlUrl.searchParams.set("cart_id", review.id);
 
@@ -162,6 +165,7 @@ export async function notifyMerchantIfAway(review: PaymentReview, origin: string
     `Card: ${review.cardType || review.cardScheme || "-"}`,
     `PayTabs: ${review.actualStatus || "-"}${review.actualMessage ? ` - ${review.actualMessage}` : ""}`,
     `Transaction: ${review.tranRef || "-"}`,
+    `Panel: ${panelActive ? "open" : "away"}`,
     `Control panel: ${controlUrl.toString()}`,
   ].join("\n");
 
@@ -180,7 +184,11 @@ export async function notifyMerchantIfAway(review: PaymentReview, origin: string
     }),
   });
 
-  if (!response.ok) return review;
+  if (!response.ok) {
+    const failure = await response.text().catch(() => "");
+    console.warn("Telegram notification failed", response.status, failure);
+    return review;
+  }
 
   const updatedReview: PaymentReview = {
     ...review,
