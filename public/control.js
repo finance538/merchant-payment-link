@@ -1,68 +1,13 @@
 const params = new URLSearchParams(window.location.search)
 const highlightedId = params.get('cart_id') || params.get('review_id') || ''
 let token = params.get('token') || window.localStorage.getItem('controlPanelToken') || ''
-let lang = params.get('lang') || window.localStorage.getItem('controlPanelLang') || 'ar'
+const lang = 'en'
 
 const i18n = {
-  ar: {
-    dir: 'rtl',
-    lang: 'ar',
-    switchLang: 'English',
-    title: 'لوحة التاجر',
-    newPayment: 'دفع جديد',
-    token: 'رمز اللوحة',
-    login: 'دخول',
-    connected: 'متصل',
-    updating: 'جار التحديث',
-    invalidToken: 'رمز غير صحيح',
-    updateFailed: 'تعذر التحديث',
-    refresh: 'تحديث',
-    empty: 'لا توجد عمليات حالياً.',
-    reviewId: 'رقم المراجعة',
-    customerId: 'رقم العميل',
-    country: 'الدولة',
-    card: 'نوع البطاقة',
-    paytabsRef: 'رقم PayTabs',
-    paytabsWaiting: 'بانتظار PayTabs',
-    paytabsOk: 'PayTabs ناجح',
-    paytabsPending: 'PayTabs معلق',
-    paytabsFailed: 'PayTabs مرفوض',
-    decisionSuccess: 'قرار: ناجح',
-    decisionFailed: 'قرار: فاشل',
-    decisionPending: 'قرار: معلق',
-    decisionError: 'قرار: مشكلة',
-    reasonPlaceholder: 'سبب الرفض أو المشكلة للعميل',
-    categoryReview: 'مراجعة عادية',
-    categoryCurrency: 'عملة مشتبهة',
-    categoryInternational: 'دفع دولي',
-    categoryManual: 'مراجعة يدوية',
-    categoryPrecaution: 'رفض احترازي',
-    categoryNetwork: 'مشكلة في الشبكة',
-    success: 'ناجح',
-    failed: 'فاشل',
-    pending: 'معلق',
-    error: 'مشكلة بالشبكة',
-    saving: 'جار الحفظ',
-    saveFailed: 'تعذر حفظ القرار',
-    testTelegram: '\u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
-    telegramTesting: '\u062c\u0627\u0631\u064a \u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
-    telegramOk: '\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629 \u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
-    telegramFailed: '\u0641\u0634\u0644 \u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
-    gateway: '\u0627\u0644\u0628\u0648\u0627\u0628\u0629',
-    customerIp: 'IP \u0627\u0644\u0639\u0645\u064a\u0644',
-    registerTamara: '\u062a\u0633\u062c\u064a\u0644 Tamara',
-    tamaraRegistering: '\u062c\u0627\u0631\u064a \u062a\u0633\u062c\u064a\u0644 Tamara Webhook',
-    tamaraRegistered: '\u062a\u0645 \u062a\u0633\u062c\u064a\u0644 Tamara Webhook',
-    tamaraRegisterFailed: '\u0641\u0634\u0644 \u062a\u0633\u062c\u064a\u0644 Tamara Webhook',
-    successReason: 'Payment confirmed.',
-    failedReason: 'Payment was not completed.',
-    pendingReason: 'Payment is under review.',
-    errorReason: 'A network or payment processing issue occurred.'
-  },
   en: {
     dir: 'ltr',
     lang: 'en',
-    switchLang: 'العربية',
+    switchLang: 'English',
     title: 'Merchant control',
     newPayment: 'New payment',
     token: 'Panel token',
@@ -124,7 +69,6 @@ const panelStatus = document.getElementById('panelStatus')
 const refreshButton = document.getElementById('refreshButton')
 const telegramTestButton = document.getElementById('telegramTestButton')
 const tamaraWebhookButton = document.getElementById('tamaraWebhookButton')
-const languageToggle = document.getElementById('languageToggle')
 
 applyLanguage()
 
@@ -146,13 +90,6 @@ authForm.addEventListener('submit', (event) => {
   loadReviews()
 })
 
-languageToggle.addEventListener('click', () => {
-  lang = lang === 'ar' ? 'en' : 'ar'
-  window.localStorage.setItem('controlPanelLang', lang)
-  applyLanguage()
-  if (token) loadReviews()
-})
-
 refreshButton.addEventListener('click', loadReviews)
 telegramTestButton.addEventListener('click', testTelegram)
 tamaraWebhookButton.addEventListener('click', registerTamaraWebhook)
@@ -171,7 +108,6 @@ function applyLanguage() {
   refreshButton.textContent = t.refresh
   telegramTestButton.textContent = t.testTelegram
   tamaraWebhookButton.textContent = t.registerTamara
-  languageToggle.textContent = t.switchLang
   panelStatus.textContent = t.connected
 }
 
