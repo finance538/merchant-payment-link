@@ -48,6 +48,12 @@ const i18n = {
     telegramTesting: '\u062c\u0627\u0631\u064a \u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
     telegramOk: '\u062a\u0645 \u0625\u0631\u0633\u0627\u0644 \u0631\u0633\u0627\u0644\u0629 \u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
     telegramFailed: '\u0641\u0634\u0644 \u0627\u062e\u062a\u0628\u0627\u0631 Telegram',
+    gateway: '\u0627\u0644\u0628\u0648\u0627\u0628\u0629',
+    customerIp: 'IP \u0627\u0644\u0639\u0645\u064a\u0644',
+    registerTamara: '\u062a\u0633\u062c\u064a\u0644 Tamara',
+    tamaraRegistering: '\u062c\u0627\u0631\u064a \u062a\u0633\u062c\u064a\u0644 Tamara Webhook',
+    tamaraRegistered: '\u062a\u0645 \u062a\u0633\u062c\u064a\u0644 Tamara Webhook',
+    tamaraRegisterFailed: '\u0641\u0634\u0644 \u062a\u0633\u062c\u064a\u0644 Tamara Webhook',
     successReason: 'Payment confirmed.',
     failedReason: 'Payment was not completed.',
     pendingReason: 'Payment is under review.',
@@ -97,6 +103,12 @@ const i18n = {
     telegramTesting: 'Testing Telegram',
     telegramOk: 'Telegram test message sent',
     telegramFailed: 'Telegram test failed',
+    gateway: 'Gateway',
+    customerIp: 'Customer IP',
+    registerTamara: 'Register Tamara',
+    tamaraRegistering: 'Registering Tamara webhook',
+    tamaraRegistered: 'Tamara webhook registered',
+    tamaraRegisterFailed: 'Tamara webhook registration failed',
     successReason: 'Payment confirmed.',
     failedReason: 'Payment was not completed.',
     pendingReason: 'Payment is under review.',
@@ -111,6 +123,7 @@ const reviewsList = document.getElementById('reviewsList')
 const panelStatus = document.getElementById('panelStatus')
 const refreshButton = document.getElementById('refreshButton')
 const telegramTestButton = document.getElementById('telegramTestButton')
+const tamaraWebhookButton = document.getElementById('tamaraWebhookButton')
 const languageToggle = document.getElementById('languageToggle')
 
 applyLanguage()
@@ -142,6 +155,7 @@ languageToggle.addEventListener('click', () => {
 
 refreshButton.addEventListener('click', loadReviews)
 telegramTestButton.addEventListener('click', testTelegram)
+tamaraWebhookButton.addEventListener('click', registerTamaraWebhook)
 setInterval(() => {
   if (token) loadReviews()
 }, 3000)
@@ -156,6 +170,7 @@ function applyLanguage() {
   document.getElementById('loginButton').textContent = t.login
   refreshButton.textContent = t.refresh
   telegramTestButton.textContent = t.testTelegram
+  tamaraWebhookButton.textContent = t.registerTamara
   languageToggle.textContent = t.switchLang
   panelStatus.textContent = t.connected
 }
@@ -223,6 +238,7 @@ function renderReview(review) {
   ]
   const country = review.customerCountry || review.cardCountry || '-'
   const card = [review.cardType, review.cardScheme].filter(Boolean).join(' / ') || '-'
+  const gateway = review.gateway || review.provider || '-'
 
   return `
     <article class="review-item ${isHighlighted ? 'is-highlighted' : ''}">
@@ -235,9 +251,11 @@ function renderReview(review) {
         <div class="review-meta">
           <p><strong>${t.reviewId}:</strong> ${escapeHtml(review.id)}</p>
           <p><strong>${t.customerId}:</strong> ${escapeHtml(review.customerId || review.cartId || review.id)}</p>
+          <p><strong>${t.gateway}:</strong> ${escapeHtml(gateway)}</p>
+          <p><strong>${t.customerIp}:</strong> ${escapeHtml(review.customerIp || '-')}</p>
           <p><strong>${t.country}:</strong> ${escapeHtml(country)}</p>
           <p><strong>${t.card}:</strong> ${escapeHtml(card)}</p>
-          ${review.tranRef ? `<p><strong>${t.paytabsRef}:</strong> ${escapeHtml(review.tranRef)}</p>` : ''}
+          ${review.tranRef || review.gatewayOrderId ? `<p><strong>${t.paytabsRef}:</strong> ${escapeHtml(review.tranRef || review.gatewayOrderId)}</p>` : ''}
         </div>
         ${review.actualMessage ? `<p class="muted">${escapeHtml(review.actualMessage)}</p>` : ''}
       </div>
@@ -302,6 +320,28 @@ async function testTelegram() {
   }
 }
 
+async function registerTamaraWebhook() {
+  const t = i18n[lang]
+  panelStatus.textContent = t.tamaraRegistering
+  tamaraWebhookButton.disabled = true
+
+  try {
+    const response = await fetch('/api/payment-control?token=' + encodeURIComponent(token), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'register-tamara-webhook' })
+    })
+    const data = await response.json().catch(() => ({}))
+    if (!response.ok || data.ok === false) throw new Error(data.error || t.tamaraRegisterFailed)
+    panelStatus.textContent = t.tamaraRegistered
+  } catch (error) {
+    console.error(error)
+    panelStatus.textContent = `${t.tamaraRegisterFailed}: ${error.message || ''}`.trim()
+  } finally {
+    tamaraWebhookButton.disabled = false
+  }
+}
+
 function getReason(status) {
   const t = i18n[lang]
   if (status === 'success') return t.successReason
@@ -311,15 +351,15 @@ function getReason(status) {
 }
 
 function getActualLabel(review) {
-  const t = i18n[lang]
-  if (!review.actualStatus) return t.paytabsWaiting
-  if (review.actualAccepted) return t.paytabsOk
-  if (['H', 'P'].includes(review.actualStatus)) return t.paytabsPending
-  return t.paytabsFailed
+  const gatewayName = review.gateway || review.provider || 'Gateway'
+  if (!review.actualStatus) return gatewayName + ' waiting'
+  if (review.actualAccepted) return gatewayName + ' accepted'
+  if (['H', 'P', 'new', 'session_requested', 'checkout_created'].includes(review.actualStatus)) return gatewayName + ' pending'
+  return gatewayName + ' rejected'
 }
 
 function getStatusClass(status) {
-  if (['H', 'P'].includes(status)) return 'is-pending'
+  if (['H', 'P', 'new', 'session_requested', 'checkout_created'].includes(status)) return 'is-pending'
   return 'is-warn'
 }
 

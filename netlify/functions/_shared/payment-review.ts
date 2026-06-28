@@ -19,6 +19,11 @@ export type PaymentReview = {
   id: string;
   cartId?: string;
   tranRef?: string;
+  provider?: string;
+  gateway?: string;
+  gatewayOrderId?: string;
+  checkoutId?: string;
+  customerIp?: string;
   customerId?: string;
   customerCountry?: string;
   cardType?: string;
@@ -30,9 +35,10 @@ export type PaymentReview = {
   actualCode?: string;
   actualMessage?: string;
   actualAccepted: boolean;
-  source: "created" | "paytabs-return" | "paytabs-callback";
+  source: "created" | "paytabs-return" | "paytabs-callback" | "tamara-return" | "tamara-webhook";
   decision?: ManualDecision;
   notifiedAt?: string;
+  notifications?: Record<string, string>;
   createdAt: string;
   updatedAt: string;
 };
@@ -145,29 +151,82 @@ export async function isPanelActive(thresholdMs = 25000): Promise<boolean> {
 export async function notifyMerchantIfAway(review: PaymentReview, origin: string): Promise<PaymentReview> {
   if (review.notifiedAt) return review;
 
+  const panelActive = await isPanelActive();
+  const text = buildTelegramText(review, origin, "Payment needs review", [
+    `Panel: ${panelActive ? "open" : "away"}`,
+  ]);
+
+  if (!(await sendTelegramMessage(text, origin, review.id))) return review;
+
+  const updatedReview: PaymentReview = {
+    ...review,
+    notifiedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+
+  await savePaymentReview(updatedReview);
+
+  return updatedReview;
+}
+
+export async function notifyMerchantEvent(
+  review: PaymentReview,
+  origin: string,
+  eventKey: string,
+  title: string,
+  details: string[] = [],
+): Promise<PaymentReview> {
+  if (review.notifications?.[eventKey]) return review;
+
+  const text = buildTelegramText(review, origin, title, details);
+
+  if (!(await sendTelegramMessage(text, origin, review.id))) return review;
+
+  const now = new Date().toISOString();
+  const updatedReview: PaymentReview = {
+    ...review,
+    notifications: {
+      ...(review.notifications || {}),
+      [eventKey]: now,
+    },
+    updatedAt: now,
+  };
+
+  await savePaymentReview(updatedReview);
+
+  return updatedReview;
+}
+
+function buildTelegramText(review: PaymentReview, origin: string, title: string, details: string[]): string {
+  const controlUrl = new URL("/control.html", origin);
+  controlUrl.searchParams.set("cart_id", review.id);
+
+  return [
+    title,
+    `Gateway: ${review.gateway || review.provider || "-"}`,
+    `Amount: ${review.amount || "-"} ${review.currency}`,
+    `Customer ID: ${review.customerId || review.id}`,
+    `Customer IP: ${review.customerIp || "-"}`,
+    `Country: ${review.customerCountry || review.cardCountry || "-"}`,
+    `Card: ${review.cardType || review.cardScheme || "-"}`,
+    `Gateway status: ${review.actualStatus || "-"}${review.actualMessage ? ` - ${review.actualMessage}` : ""}`,
+    `Transaction: ${review.tranRef || review.gatewayOrderId || "-"}`,
+    ...details,
+    `Control panel: ${controlUrl.toString()}`,
+  ].join("\n");
+}
+
+async function sendTelegramMessage(text: string, origin: string, reviewId: string): Promise<boolean> {
   const botToken = Netlify.env.get("TELEGRAM_BOT_TOKEN");
   const chatId = Netlify.env.get("TELEGRAM_CHAT_ID");
 
   if (!botToken || !chatId) {
     console.warn("Telegram notification skipped: missing bot token or chat id");
-    return review;
+    return false;
   }
 
-  const panelActive = await isPanelActive();
   const controlUrl = new URL("/control.html", origin);
-  controlUrl.searchParams.set("cart_id", review.id);
-
-  const text = [
-    "Payment needs review",
-    `Amount: ${review.amount || "-"} ${review.currency}`,
-    `Customer ID: ${review.customerId || review.id}`,
-    `Country: ${review.customerCountry || review.cardCountry || "-"}`,
-    `Card: ${review.cardType || review.cardScheme || "-"}`,
-    `PayTabs: ${review.actualStatus || "-"}${review.actualMessage ? ` - ${review.actualMessage}` : ""}`,
-    `Transaction: ${review.tranRef || "-"}`,
-    `Panel: ${panelActive ? "open" : "away"}`,
-    `Control panel: ${controlUrl.toString()}`,
-  ].join("\n");
+  controlUrl.searchParams.set("cart_id", reviewId);
 
   const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
@@ -187,18 +246,10 @@ export async function notifyMerchantIfAway(review: PaymentReview, origin: string
   if (!response.ok) {
     const failure = await response.text().catch(() => "");
     console.warn("Telegram notification failed", response.status, failure);
-    return review;
+    return false;
   }
 
-  const updatedReview: PaymentReview = {
-    ...review,
-    notifiedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  };
-
-  await savePaymentReview(updatedReview);
-
-  return updatedReview;
+  return true;
 }
 
 function paymentKey(id: string): string {

@@ -13,6 +13,7 @@ What it does:
 - Netlify Function creates the checkout session server-side.
 - Demo mode works immediately after deployment.
 - PayTabs Hosted Payment Page is supported through server-side environment variables.
+- Tamara checkout is supported through server-side environment variables.
 - Merchant review waits up to 20 seconds, except rejected PayTabs payments which are rejected automatically.
 - Telegram alerts can send a direct control-panel link for the specific payment.
 
@@ -63,6 +64,15 @@ Optional PayTabs variables:
 - `PAYTABS_CART_DESCRIPTION=Merchant Payment Link`
 - `PAYTABS_CALLBACK_URL=https://merchant-payment-link.netlify.app/api/paytabs-callback`
 - `PAYTABS_QUERY_URL=https://secure.paytabs.sa/payment/query`
+
+For Tamara, add these variables in Netlify:
+
+- `TAMARA_API_URL=https://api.tamara.co`
+- `TAMARA_API_TOKEN=your_tamara_merchant_key`
+- `TAMARA_NOTIFICATION_TOKEN=your_tamara_notification_token`
+- `TAMARA_PLATFORM=ONESHOT_POS_QR`
+- `TAMARA_LOCALE=en_US`
+- `PUBLIC_SITE_URL=https://merchant-payment-link.netlify.app`
 
 Optional Telegram variables for merchant alerts:
 

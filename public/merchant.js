@@ -4,6 +4,7 @@ const T = {
   heading: 'Enter the amount',
   body: 'Enter the amount only. You will be redirected to the secure payment page. No name, email, or phone number is required.',
   amount: 'Amount',
+  gateway: 'Payment gateway',
   pay: 'Continue to payment',
   loading: 'Redirecting to the payment page...',
   invalid: 'Invalid amount.',
@@ -15,6 +16,7 @@ setText('merchantKicker', T.kicker)
 setText('merchantTitle', T.heading)
 setText('merchantBody', T.body)
 setText('amountInputLabel', T.amount)
+setText('gatewayLabel', T.gateway)
 setText('payButton', T.pay)
 
 const form = document.getElementById('paymentForm')
@@ -26,6 +28,7 @@ form.addEventListener('submit', async (event) => {
 
   const formData = new FormData(form)
   const amount = parseAmount(formData.get('amount'))
+  const gateway = sanitiseGateway(formData.get('gateway'))
   const currency = 'SAR'
 
   if (amount === null) {
@@ -40,7 +43,7 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch('/api/create-payment-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, currency })
+      body: JSON.stringify({ amount, currency, gateway })
     })
 
     const data = await response.json().catch(() => ({}))
@@ -63,6 +66,10 @@ function parseAmount(value) {
   if (!Number.isFinite(number) || number <= 0) return null
 
   return Math.round(number * 100) / 100
+}
+
+function sanitiseGateway(value) {
+  return ['paytabs', 'tamara'].includes(value) ? value : 'paytabs'
 }
 
 function setText(id, text) {

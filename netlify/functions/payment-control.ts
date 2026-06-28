@@ -49,6 +49,10 @@ export default async (req: Request) => {
       return sendTelegramTest(req);
     }
 
+    if (payload.action === "register-tamara-webhook") {
+      return registerTamaraWebhook(req);
+    }
+
     if (!payload.id || !payload.status || !allowedStatuses.has(payload.status)) {
       return json({ error: "Invalid decision" }, 400);
     }
@@ -61,7 +65,7 @@ export default async (req: Request) => {
     }
 
     if (payload.status === "success" && !currentReview.actualAccepted) {
-      return json({ error: "Success can only be selected after PayTabs confirms an accepted payment" }, 409);
+      return json({ error: "Success can only be selected after the gateway confirms an accepted payment" }, 409);
     }
 
     const review = await setManualDecision(payload.id, payload.status, payload.reason, payload.category);
@@ -93,6 +97,51 @@ function authorise(req: Request): Response | null {
   }
 
   return null;
+}
+
+async function registerTamaraWebhook(req: Request): Promise<Response> {
+  const apiToken = Netlify.env.get("TAMARA_API_TOKEN") || Netlify.env.get("TAMARA_MERCHANT_KEY");
+  const apiBaseUrl = (Netlify.env.get("TAMARA_API_URL") || "https://api.tamara.co").replace(/\/$/, "");
+
+  if (!apiToken) {
+    return json({ ok: false, error: "TAMARA_API_TOKEN is missing in Netlify" }, 500);
+  }
+
+  const webhookUrl = new URL("/api/tamara-webhook", getPublicOrigin(req)).toString();
+  const response = await fetch(apiBaseUrl + "/webhooks", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: "Bearer " + apiToken,
+    },
+    body: JSON.stringify({
+      type: "order",
+      events: [
+        "order_approved",
+        "order_declined",
+        "order_authorised",
+        "order_canceled",
+        "order_captured",
+        "order_refunded",
+        "order_expired",
+      ],
+      url: webhookUrl,
+    }),
+  });
+
+  const data = (await response.json().catch(() => ({}))) as { message?: string; error?: string; webhook_id?: string };
+
+  if (!response.ok) {
+    return json(
+      {
+        ok: false,
+        error: data.message || data.error || `Tamara webhook registration failed with HTTP ${response.status}`,
+      },
+      502,
+    );
+  }
+
+  return json({ ok: true, webhookUrl, webhookId: data.webhook_id || null }, 200);
 }
 
 async function sendTelegramTest(req: Request): Promise<Response> {

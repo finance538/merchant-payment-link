@@ -25,6 +25,24 @@
             <span>SAR</span>
           </div>
 
+          <fieldset class="gateway-picker" aria-labelledby="gatewayLabel">
+            <legend id="gatewayLabel"></legend>
+            <label class="gateway-option">
+              <input type="radio" name="gateway" value="paytabs" checked />
+              <span>
+                <strong>PayTabs</strong>
+                <small>Cards and Apple Pay</small>
+              </span>
+            </label>
+            <label class="gateway-option">
+              <input type="radio" name="gateway" value="tamara" />
+              <span>
+                <strong>Tamara</strong>
+                <small>Pay with Tamara</small>
+              </span>
+            </label>
+          </fieldset>
+
           <button class="pay-button" type="submit" id="payButton"></button>
         </form>
 

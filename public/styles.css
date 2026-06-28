@@ -183,6 +183,61 @@ label {
   font-weight: 900;
 }
 
+.gateway-picker {
+  display: grid;
+  gap: 10px;
+  padding: 0;
+  margin: 6px 0 0;
+  border: 0;
+}
+
+.gateway-picker legend {
+  margin-bottom: 2px;
+  font-weight: 800;
+}
+
+.compact-gateway-picker {
+  margin: 0 0 18px;
+}
+
+.gateway-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-height: 58px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+
+.gateway-option:has(input:checked) {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(20, 83, 63, 0.12);
+}
+
+.gateway-option input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--green);
+}
+
+.gateway-option span {
+  display: grid;
+  gap: 3px;
+}
+
+.gateway-option strong {
+  color: var(--green-dark);
+}
+
+.gateway-option small {
+  color: var(--muted);
+  font-size: 13px;
+}
+
 .result-box {
   padding: 18px;
   border: 1px dashed var(--border);

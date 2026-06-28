@@ -1,6 +1,7 @@
 const T = {
   title: 'Direct Payment',
   amountLabel: 'Amount due',
+  gatewayLabel: 'Payment gateway',
   noAmount: 'Not set',
   payNow: 'Pay Now',
   loading: 'Creating secure payment session...',
@@ -10,6 +11,7 @@ const T = {
 
 document.title = T.title
 document.getElementById('amountLabel').textContent = T.amountLabel
+document.getElementById('gatewayLabel').textContent = T.gatewayLabel
 document.getElementById('payButtonText').textContent = T.payNow
 
 const params = new URLSearchParams(window.location.search)
@@ -40,7 +42,7 @@ payButton.addEventListener('click', async () => {
     const response = await fetch('/api/create-payment-session', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ amount, currency })
+      body: JSON.stringify({ amount, currency, gateway: getSelectedGateway() })
     })
 
     const data = await response.json().catch(() => ({}))
@@ -66,6 +68,11 @@ function parseAmount(value) {
 
 function sanitiseCurrency(value) {
   return /^[A-Z]{3}$/.test(value) ? value : 'SAR'
+}
+
+function getSelectedGateway() {
+  const selected = document.querySelector('input[name="gateway"]:checked')?.value
+  return ['paytabs', 'tamara'].includes(selected) ? selected : 'paytabs'
 }
 
 function formatAmount(value, currencyCode) {

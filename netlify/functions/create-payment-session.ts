@@ -1,5 +1,5 @@
 import type { Config, Context } from "@netlify/functions";
-import { upsertPaymentReview } from "./_shared/payment-review";
+import { notifyMerchantEvent, upsertPaymentReview } from "./_shared/payment-review";
 
 declare const Netlify: {
   env: {
@@ -10,6 +10,7 @@ declare const Netlify: {
 type CheckoutPayload = {
   amount?: number | string;
   currency?: string;
+  gateway?: string;
 };
 
 type GenericCheckoutResponse = {
@@ -23,6 +24,16 @@ type PayTabsCheckoutResponse = {
   tran_ref?: string;
   message?: string;
   code?: string | number;
+};
+
+type TamaraCheckoutResponse = {
+  checkout_deeplink?: string;
+  checkout_url?: string;
+  checkout_id?: string;
+  order_id?: string;
+  status?: string;
+  message?: string;
+  errors?: Array<{ error_code?: string; message?: string }>;
 };
 
 export default async (req: Request, context: Context) => {
@@ -39,9 +50,10 @@ export default async (req: Request, context: Context) => {
   }
 
   const origin = getPublicOrigin(req);
+  const customerIp = getClientIp(req, context);
   const successUrl = origin + "/success.html?amount=" + encodeURIComponent(amount.toFixed(2)) + "&currency=" + currency;
   const cancelUrl = origin + "/cancel.html?amount=" + encodeURIComponent(amount.toFixed(2)) + "&currency=" + currency;
-  const provider = (Netlify.env.get("PAYMENT_PROVIDER") || "demo").toLowerCase();
+  const provider = normaliseProvider(payload.gateway) || (Netlify.env.get("PAYMENT_PROVIDER") || "demo").toLowerCase();
 
   if (provider === "demo") {
     return json({ url: successUrl }, 200);
@@ -118,6 +130,9 @@ export default async (req: Request, context: Context) => {
       upsertPaymentReview({
         id: cartId,
         cartId,
+        provider: "paytabs",
+        gateway: "PayTabs",
+        customerIp,
         customerId: cartId,
         amount: amount.toFixed(2),
         currency,
@@ -158,6 +173,84 @@ export default async (req: Request, context: Context) => {
     return json({ url: checkoutUrl, tranRef: payTabsData.tran_ref }, 200);
   }
 
+  if (provider === "tamara") {
+    const apiToken = Netlify.env.get("TAMARA_API_TOKEN") || Netlify.env.get("TAMARA_MERCHANT_KEY");
+    const apiBaseUrl = (Netlify.env.get("TAMARA_API_URL") || "https://api.tamara.co").replace(/\/$/, "");
+    const platform = Netlify.env.get("TAMARA_PLATFORM") || "ONESHOT_POS_QR";
+    const locale = Netlify.env.get("TAMARA_LOCALE") || "en_US";
+
+    if (!apiToken) {
+      return json({ error: "TAMARA_API_TOKEN is missing" }, 500);
+    }
+
+    const cartId = createCartId();
+    const review = await upsertPaymentReview({
+      id: cartId,
+      cartId,
+      provider: "tamara",
+      gateway: "Tamara",
+      customerIp,
+      customerId: cartId,
+      amount: amount.toFixed(2),
+      currency,
+      actualStatus: "session_requested",
+      actualAccepted: false,
+      source: "created",
+    });
+
+    context.waitUntil(
+      notifyMerchantEvent(review, origin, "tamara-started", "Payment started", [
+        "Stage: customer selected Tamara and pressed Pay",
+      ]).catch((error) => console.error("Unable to send Tamara start notification", error)),
+    );
+
+    const tamaraResponse = await fetch(apiBaseUrl + "/checkout/in-store", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + apiToken,
+      },
+      body: JSON.stringify({
+        amount: {
+          amount: Number(amount.toFixed(2)),
+          currency,
+        },
+        order_reference_id: cartId,
+        order_number: cartId,
+        platform,
+        locale,
+        additional_data: {
+          store_code: Netlify.env.get("TAMARA_STORE_CODE") || "merchant-payment-link",
+        },
+      }),
+    });
+
+    const tamaraData = (await tamaraResponse.json().catch(() => ({}))) as TamaraCheckoutResponse;
+    const checkoutUrl = tamaraData.checkout_deeplink || tamaraData.checkout_url;
+
+    if (!tamaraResponse.ok || !checkoutUrl) {
+      return json({ error: getTamaraError(tamaraData, tamaraResponse.status) }, 502);
+    }
+
+    await upsertPaymentReview({
+      id: cartId,
+      cartId,
+      provider: "tamara",
+      gateway: "Tamara",
+      gatewayOrderId: tamaraData.order_id,
+      checkoutId: tamaraData.checkout_id,
+      customerIp,
+      customerId: cartId,
+      amount: amount.toFixed(2),
+      currency,
+      actualStatus: tamaraData.status || "checkout_created",
+      actualAccepted: false,
+      source: "created",
+    });
+
+    return json({ url: checkoutUrl, orderId: tamaraData.order_id, checkoutId: tamaraData.checkout_id }, 200);
+  }
+
   return json({ error: "Unsupported PAYMENT_PROVIDER: " + provider }, 500);
 };
 
@@ -174,6 +267,16 @@ function normaliseAmount(value: number | string | undefined): number | null {
   if (!Number.isFinite(parsed) || parsed <= 0) return null;
 
   return Math.round(parsed * 100) / 100;
+}
+
+function normaliseProvider(value: string | undefined): string {
+  if (!value) return "";
+
+  const provider = value.toLowerCase().trim();
+
+  if (["paytabs", "tamara", "demo", "redirect", "generic-json-api"].includes(provider)) return provider;
+
+  return "";
 }
 
 function normaliseCurrency(value: string | undefined): string {
@@ -194,10 +297,23 @@ function getPublicOrigin(req: Request): string {
   return new URL(req.url).origin;
 }
 
+function getClientIp(req: Request, context: Context): string {
+  const forwardedFor = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const realIp = req.headers.get("x-real-ip")?.trim();
+
+  return context.ip || forwardedFor || realIp || "";
+}
+
 function createCartId(): string {
   const randomPart = Math.random().toString(36).slice(2, 10);
 
   return "mpl-" + Date.now() + "-" + randomPart;
+}
+
+function getTamaraError(data: TamaraCheckoutResponse, status: number): string {
+  const firstError = data.errors?.find((error) => error.message || error.error_code);
+
+  return data.message || firstError?.message || firstError?.error_code || "Tamara did not return a checkout URL (HTTP " + status + ")";
 }
 
 function json(data: unknown, status: number): Response {
