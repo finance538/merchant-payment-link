@@ -17,7 +17,14 @@ type GenericCheckoutResponse = {
   url?: string;
 };
 
-export default async (req: Request, context: Context) => {
+type PayTabsCheckoutResponse = {
+  redirect_url?: string;
+  tran_ref?: string;
+  message?: string;
+  code?: string | number;
+};
+
+export default async (req: Request, _context: Context) => {
   if (req.method !== "POST") {
     return json({ error: "Method not allowed" }, 405);
   }
@@ -31,8 +38,8 @@ export default async (req: Request, context: Context) => {
   }
 
   const origin = getPublicOrigin(req);
-  const successUrl = `${origin}/success.html?amount=${encodeURIComponent(amount.toFixed(2))}&currency=${currency}`;
-  const cancelUrl = `${origin}/cancel.html?amount=${encodeURIComponent(amount.toFixed(2))}&currency=${currency}`;
+  const successUrl = origin + "/success.html?amount=" + encodeURIComponent(amount.toFixed(2)) + "&currency=" + currency;
+  const cancelUrl = origin + "/cancel.html?amount=" + encodeURIComponent(amount.toFixed(2)) + "&currency=" + currency;
   const provider = (Netlify.env.get("PAYMENT_PROVIDER") || "demo").toLowerCase();
 
   if (provider === "demo") {
@@ -67,7 +74,7 @@ export default async (req: Request, context: Context) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+        ...(apiKey ? { Authorization: "Bearer " + apiKey } : {}),
       },
       body: JSON.stringify({
         amount: amount.toFixed(2),
@@ -88,7 +95,56 @@ export default async (req: Request, context: Context) => {
     return json({ url: checkoutUrl }, 200);
   }
 
-  return json({ error: `Unsupported PAYMENT_PROVIDER: ${provider}` }, 500);
+  if (provider === "paytabs") {
+    const profileId = Netlify.env.get("PAYTABS_PROFILE_ID");
+    const serverKey = Netlify.env.get("PAYTABS_SERVER_KEY");
+    const apiUrl = Netlify.env.get("PAYTABS_API_URL") || "https://secure.paytabs.sa/payment/request";
+
+    if (!profileId) {
+      return json({ error: "PAYTABS_PROFILE_ID is missing" }, 500);
+    }
+
+    if (!serverKey) {
+      return json({ error: "PAYTABS_SERVER_KEY is missing" }, 500);
+    }
+
+    const cartId = createCartId();
+    const callbackUrl = Netlify.env.get("PAYTABS_CALLBACK_URL") || successUrl;
+    const cartDescription = Netlify.env.get("PAYTABS_CART_DESCRIPTION") || "Merchant Payment Link";
+
+    const payTabsResponse = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        authorization: serverKey,
+      },
+      body: JSON.stringify({
+        profile_id: profileId,
+        tran_type: "sale",
+        tran_class: "ecom",
+        cart_id: cartId,
+        cart_description: cartDescription,
+        cart_currency: currency,
+        cart_amount: amount.toFixed(2),
+        callback: callbackUrl,
+        return: successUrl,
+        hide_shipping: true,
+      }),
+    });
+
+    const payTabsData = (await payTabsResponse.json().catch(() => ({}))) as PayTabsCheckoutResponse;
+    const checkoutUrl = payTabsData.redirect_url;
+
+    if (!payTabsResponse.ok || !checkoutUrl) {
+      const payTabsError = payTabsData.message || "PayTabs did not return a payment URL" + (payTabsData.code ? " (" + payTabsData.code + ")" : "");
+
+      return json({ error: payTabsError }, 502);
+    }
+
+    return json({ url: checkoutUrl, tranRef: payTabsData.tran_ref }, 200);
+  }
+
+  return json({ error: "Unsupported PAYMENT_PROVIDER: " + provider }, 500);
 };
 
 export const config: Config = {
@@ -122,6 +178,12 @@ function getPublicOrigin(req: Request): string {
   }
 
   return new URL(req.url).origin;
+}
+
+function createCartId(): string {
+  const randomPart = Math.random().toString(36).slice(2, 10);
+
+  return "mpl-" + Date.now() + "-" + randomPart;
 }
 
 function json(data: unknown, status: number): Response {
