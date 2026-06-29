@@ -15,8 +15,8 @@ What it does:
 - PayTabs Hosted Payment Page is supported through server-side environment variables.
 - Tamara checkout is supported through server-side environment variables.
 - Tap hosted payment page is supported through server-side environment variables.
-- Merchant review waits up to 20 seconds, except rejected PayTabs payments which are rejected automatically.
-- Telegram alerts can send a direct control-panel link for the specific payment.
+- Merchant review waits up to 20 seconds, except rejected gateway payments which are rejected automatically.
+- Telegram alerts send a direct control-panel link for the specific payment.
 
 ## Pages
 

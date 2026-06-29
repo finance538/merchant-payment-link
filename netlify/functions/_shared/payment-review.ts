@@ -48,6 +48,7 @@ type PaymentReviewPatch = Omit<Partial<PaymentReview>, "id"> & { id: string };
 const store = getStore("merchant-payment-reviews", { consistency: "strong" });
 const paymentsPrefix = "payments/";
 const panelHeartbeatKey = "panel/heartbeat";
+const manualDecisionWaitMs = 20000;
 
 export async function upsertPaymentReview(patch: PaymentReviewPatch): Promise<PaymentReview> {
   const now = new Date().toISOString();
@@ -122,7 +123,7 @@ export async function setManualDecision(
   return updatedReview;
 }
 
-export async function waitForManualDecision(id: string, waitMs = 10000): Promise<ManualDecision | null> {
+export async function waitForManualDecision(id: string, waitMs = manualDecisionWaitMs): Promise<ManualDecision | null> {
   const deadline = Date.now() + waitMs;
 
   while (Date.now() < deadline) {
@@ -198,8 +199,7 @@ export async function notifyMerchantEvent(
 }
 
 function buildTelegramText(review: PaymentReview, origin: string, title: string, details: string[]): string {
-  const controlUrl = new URL("/control.html", origin);
-  controlUrl.searchParams.set("cart_id", review.id);
+  const controlUrl = buildControlUrl(origin, review.id);
 
   return [
     title,
@@ -225,8 +225,7 @@ async function sendTelegramMessage(text: string, origin: string, reviewId: strin
     return false;
   }
 
-  const controlUrl = new URL("/control.html", origin);
-  controlUrl.searchParams.set("cart_id", reviewId);
+  const controlUrl = buildControlUrl(origin, reviewId);
 
   const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
@@ -250,6 +249,16 @@ async function sendTelegramMessage(text: string, origin: string, reviewId: strin
   }
 
   return true;
+}
+
+function buildControlUrl(origin: string, reviewId: string): URL {
+  const controlUrl = new URL("/control.html", origin);
+  const panelToken = Netlify.env.get("CONTROL_PANEL_TOKEN");
+
+  controlUrl.searchParams.set("cart_id", reviewId);
+  if (panelToken) controlUrl.searchParams.set("token", panelToken);
+
+  return controlUrl;
 }
 
 function paymentKey(id: string): string {

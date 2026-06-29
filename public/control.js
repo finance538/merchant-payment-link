@@ -26,7 +26,7 @@ const i18n = {
     customerId: 'Customer ID',
     country: 'Country',
     card: 'Card type',
-    paytabsRef: 'PayTabs ref',
+    transactionRef: 'Transaction ref',
     paytabsWaiting: 'Waiting for PayTabs',
     paytabsOk: 'PayTabs accepted',
     paytabsPending: 'PayTabs pending',
@@ -80,6 +80,7 @@ let audioContext = null
 let firstReviewsLoad = true
 let knownReviewIds = new Set()
 let alertTitleTimer = null
+let alertActiveUntil = 0
 
 applyLanguage()
 updateSoundButton()
@@ -114,6 +115,7 @@ function applyLanguage() {
   const t = i18n[lang]
   document.documentElement.lang = t.lang
   document.documentElement.dir = t.dir
+  document.title = t.title
   document.getElementById('controlTitle').textContent = t.title
   document.getElementById('newPaymentLink').textContent = t.newPayment
   document.getElementById('tokenLabel').textContent = t.token
@@ -152,7 +154,9 @@ async function loadReviews() {
     const reviews = data.reviews || []
     handleNewReviews(reviews)
     renderReviews(reviews)
-    panelStatus.textContent = t.connected
+    if (Date.now() >= alertActiveUntil) {
+      panelStatus.textContent = t.connected
+    }
   } catch (error) {
     console.error(error)
     panelStatus.textContent = t.updateFailed
@@ -202,10 +206,12 @@ function showNewPaymentAlert(review) {
   document.body.classList.add('has-new-payment')
   window.clearTimeout(alertTitleTimer)
   document.title = t.newPaymentAlert + ' - ' + baseDocumentTitle
+  alertActiveUntil = Date.now() + 4500
 
   alertTitleTimer = window.setTimeout(() => {
     document.body.classList.remove('has-new-payment')
     document.title = baseDocumentTitle
+    alertActiveUntil = 0
   }, 4500)
 
   if (review.id && highlightedId !== review.id) {
@@ -261,7 +267,8 @@ function renderReview(review) {
   const decisionLabel = getDecisionLabel(review)
   const amount = review.amount ? formatAmount(review.amount, review.currency || 'SAR') : '-'
   const isHighlighted = highlightedId && highlightedId === review.id
-  const successDisabled = !review.actualAccepted || Boolean(review.decision)
+  const gatewayAccepted = isGatewayAccepted(review)
+  const successDisabled = !gatewayAccepted || Boolean(review.decision)
   const disabled = Boolean(review.decision)
   const reasonOptions = [
     t.categoryReview,
@@ -279,7 +286,7 @@ function renderReview(review) {
     <article class="review-item ${isHighlighted ? 'is-highlighted' : ''}">
       <div class="review-main">
         <div>
-          <span class="status-pill ${review.actualAccepted ? 'is-ok' : getStatusClass(review.actualStatus)}">${actualLabel}</span>
+          <span class="status-pill ${gatewayAccepted ? 'is-ok' : getStatusClass(review.actualStatus)}">${actualLabel}</span>
           ${decisionLabel ? `<span class="status-pill is-manual">${decisionLabel}</span>` : ''}
         </div>
         <h2>${amount}</h2>
@@ -290,7 +297,7 @@ function renderReview(review) {
           <p><strong>${t.customerIp}:</strong> ${escapeHtml(review.customerIp || '-')}</p>
           <p><strong>${t.country}:</strong> ${escapeHtml(country)}</p>
           <p><strong>${t.card}:</strong> ${escapeHtml(card)}</p>
-          ${review.tranRef || review.gatewayOrderId ? `<p><strong>${t.paytabsRef}:</strong> ${escapeHtml(review.tranRef || review.gatewayOrderId)}</p>` : ''}
+          ${review.tranRef || review.gatewayOrderId ? `<p><strong>${t.transactionRef}:</strong> ${escapeHtml(review.tranRef || review.gatewayOrderId)}</p>` : ''}
         </div>
         ${review.actualMessage ? `<p class="muted">${escapeHtml(review.actualMessage)}</p>` : ''}
       </div>
@@ -387,15 +394,39 @@ function getReason(status) {
 
 function getActualLabel(review) {
   const gatewayName = review.gateway || review.provider || 'Gateway'
-  if (!review.actualStatus) return gatewayName + ' waiting'
-  if (review.actualAccepted) return gatewayName + ' accepted'
-  if (['H', 'P', 'new', 'session_requested', 'checkout_created'].includes(review.actualStatus)) return gatewayName + ' pending'
+  const status = normaliseStatus(review.actualStatus)
+
+  if (!status) return gatewayName + ' waiting'
+  if (isGatewayAccepted(review)) return gatewayName + ' accepted'
+  if (isPendingStatus(status)) return gatewayName + ' pending'
   return gatewayName + ' rejected'
 }
 
 function getStatusClass(status) {
-  if (['H', 'P', 'new', 'session_requested', 'checkout_created'].includes(status)) return 'is-pending'
+  if (isPendingStatus(normaliseStatus(status))) return 'is-pending'
   return 'is-warn'
+}
+
+function normaliseStatus(status) {
+  return String(status || '').trim().toUpperCase().replace(/\s+/g, '_')
+}
+
+function isPendingStatus(status) {
+  return [
+    'H',
+    'P',
+    'NEW',
+    'INITIATED',
+    'IN_PROGRESS',
+    'SESSION_REQUESTED',
+    'CHECKOUT_CREATED'
+  ].includes(status)
+}
+
+function isGatewayAccepted(review) {
+  const status = normaliseStatus(review.actualStatus)
+
+  return Boolean(review.actualAccepted) || ['A', 'CAPTURED', 'ORDER_APPROVED', 'ORDER_AUTHORISED', 'ORDER_CAPTURED'].includes(status)
 }
 
 function getDecisionLabel(review) {

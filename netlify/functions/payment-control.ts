@@ -4,6 +4,7 @@ import {
   setManualDecision,
   touchPanelHeartbeat,
   type ManualDecisionStatus,
+  type PaymentReview,
 } from "./_shared/payment-review";
 
 declare const Netlify: {
@@ -64,7 +65,7 @@ export default async (req: Request) => {
       return json({ error: "Payment review was not found" }, 404);
     }
 
-    if (payload.status === "success" && !currentReview.actualAccepted) {
+    if (payload.status === "success" && !isGatewayAccepted(currentReview)) {
       return json({ error: "Success can only be selected after the gateway confirms an accepted payment" }, 409);
     }
 
@@ -97,6 +98,19 @@ function authorise(req: Request): Response | null {
   }
 
   return null;
+}
+
+function isGatewayAccepted(review: PaymentReview): boolean {
+  const status = normaliseStatus(review.actualStatus);
+
+  return review.actualAccepted || ["A", "CAPTURED", "ORDER_APPROVED", "ORDER_AUTHORISED", "ORDER_CAPTURED"].includes(status);
+}
+
+function normaliseStatus(status: string | undefined): string {
+  return String(status || "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_");
 }
 
 async function registerTamaraWebhook(req: Request): Promise<Response> {
@@ -153,6 +167,8 @@ async function sendTelegramTest(req: Request): Promise<Response> {
   }
 
   const controlUrl = new URL("/control.html", getPublicOrigin(req));
+  controlUrl.searchParams.set("token", Netlify.env.get("CONTROL_PANEL_TOKEN") || "");
+
   const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: {
