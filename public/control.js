@@ -17,6 +17,10 @@ const i18n = {
     invalidToken: 'Invalid token',
     updateFailed: 'Unable to update',
     refresh: 'Refresh',
+    enableSound: 'Enable sound',
+    soundOn: 'Sound on',
+    soundOff: 'Sound off',
+    newPaymentAlert: 'New payment received',
     empty: 'No payments yet.',
     reviewId: 'Review ID',
     customerId: 'Customer ID',
@@ -69,8 +73,16 @@ const panelStatus = document.getElementById('panelStatus')
 const refreshButton = document.getElementById('refreshButton')
 const telegramTestButton = document.getElementById('telegramTestButton')
 const tamaraWebhookButton = document.getElementById('tamaraWebhookButton')
+const soundToggleButton = document.getElementById('soundToggleButton')
+const baseDocumentTitle = document.title
+let soundEnabled = window.localStorage.getItem('controlSoundEnabled') === 'true'
+let audioContext = null
+let firstReviewsLoad = true
+let knownReviewIds = new Set()
+let alertTitleTimer = null
 
 applyLanguage()
+updateSoundButton()
 
 if (token) {
   tokenInput.value = token
@@ -93,6 +105,7 @@ authForm.addEventListener('submit', (event) => {
 refreshButton.addEventListener('click', loadReviews)
 telegramTestButton.addEventListener('click', testTelegram)
 tamaraWebhookButton.addEventListener('click', registerTamaraWebhook)
+soundToggleButton.addEventListener('click', toggleSound)
 setInterval(() => {
   if (token) loadReviews()
 }, 3000)
@@ -108,6 +121,7 @@ function applyLanguage() {
   refreshButton.textContent = t.refresh
   telegramTestButton.textContent = t.testTelegram
   tamaraWebhookButton.textContent = t.registerTamara
+  updateSoundButton()
   panelStatus.textContent = t.connected
 }
 
@@ -135,12 +149,97 @@ async function loadReviews() {
       return
     }
     if (!response.ok) throw new Error(data.error || 'Failed')
-    renderReviews(data.reviews || [])
+    const reviews = data.reviews || []
+    handleNewReviews(reviews)
+    renderReviews(reviews)
     panelStatus.textContent = t.connected
   } catch (error) {
     console.error(error)
     panelStatus.textContent = t.updateFailed
   }
+}
+
+async function toggleSound() {
+  soundEnabled = !soundEnabled
+  window.localStorage.setItem('controlSoundEnabled', String(soundEnabled))
+  updateSoundButton()
+
+  if (soundEnabled) {
+    await playBell()
+  }
+}
+
+function updateSoundButton() {
+  if (!soundToggleButton) return
+
+  const t = i18n[lang]
+  soundToggleButton.textContent = soundEnabled ? t.soundOn : t.enableSound
+  soundToggleButton.setAttribute('aria-pressed', String(soundEnabled))
+  soundToggleButton.classList.toggle('is-active', soundEnabled)
+}
+
+function handleNewReviews(reviews) {
+  const currentIds = new Set(reviews.map((review) => review.id).filter(Boolean))
+
+  if (firstReviewsLoad) {
+    knownReviewIds = currentIds
+    firstReviewsLoad = false
+    return
+  }
+
+  const newReviews = reviews.filter((review) => review.id && !knownReviewIds.has(review.id))
+  knownReviewIds = currentIds
+
+  if (!newReviews.length) return
+
+  showNewPaymentAlert(newReviews[0])
+  if (soundEnabled) playBell()
+}
+
+function showNewPaymentAlert(review) {
+  const t = i18n[lang]
+  panelStatus.textContent = t.newPaymentAlert
+  document.body.classList.add('has-new-payment')
+  window.clearTimeout(alertTitleTimer)
+  document.title = t.newPaymentAlert + ' - ' + baseDocumentTitle
+
+  alertTitleTimer = window.setTimeout(() => {
+    document.body.classList.remove('has-new-payment')
+    document.title = baseDocumentTitle
+  }, 4500)
+
+  if (review.id && highlightedId !== review.id) {
+    window.sessionStorage.setItem('latestPaymentReviewId', review.id)
+  }
+}
+
+async function playBell() {
+  try {
+    audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)()
+    if (audioContext.state === 'suspended') await audioContext.resume()
+
+    playTone(880, 0.08, 0)
+    playTone(1175, 0.12, 0.11)
+  } catch (error) {
+    console.warn('Unable to play alert sound', error)
+  }
+}
+
+function playTone(frequency, duration, delay) {
+  const oscillator = audioContext.createOscillator()
+  const gain = audioContext.createGain()
+  const startAt = audioContext.currentTime + delay
+  const stopAt = startAt + duration
+
+  oscillator.type = 'sine'
+  oscillator.frequency.setValueAtTime(frequency, startAt)
+  gain.gain.setValueAtTime(0.0001, startAt)
+  gain.gain.exponentialRampToValueAtTime(0.16, startAt + 0.015)
+  gain.gain.exponentialRampToValueAtTime(0.0001, stopAt)
+  oscillator.connect(gain)
+  gain.connect(audioContext.destination)
+  oscillator.start(startAt)
+  oscillator.stop(stopAt + 0.02)
 }
 
 function renderReviews(reviews) {

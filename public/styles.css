@@ -274,6 +274,12 @@ label {
   cursor: pointer;
 }
 
+.secondary-button.is-active {
+  border-color: var(--green);
+  background: var(--green);
+  color: #fff;
+}
+
 .center-message {
   min-height: 100vh;
   display: grid;
@@ -317,6 +323,12 @@ label {
   border-radius: 8px;
   box-shadow: var(--shadow);
   padding: clamp(18px, 4vw, 34px);
+  transition: box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.has-new-payment .control-panel {
+  border-color: var(--gold);
+  box-shadow: 0 0 0 4px rgba(201, 162, 75, 0.18), var(--shadow);
 }
 
 .control-header,
