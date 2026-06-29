@@ -140,19 +140,24 @@ export default async (req: Request, context: Context) => {
     const returnUrl = origin + "/api/paytabs-return?amount=" + encodeURIComponent(amount.toFixed(2)) + "&currency=" + currency + "&cart_id=" + encodeURIComponent(cartId);
     const cartDescription = Netlify.env.get("PAYTABS_CART_DESCRIPTION") || "Merchant Payment Link";
 
+    const review = await upsertPaymentReview({
+      id: cartId,
+      cartId,
+      provider: "paytabs",
+      gateway: "PayTabs",
+      customerIp,
+      customerId: cartId,
+      amount: amount.toFixed(2),
+      currency,
+      actualStatus: "session_requested",
+      actualAccepted: false,
+      source: "created",
+    });
+
     context.waitUntil(
-      upsertPaymentReview({
-        id: cartId,
-        cartId,
-        provider: "paytabs",
-        gateway: "PayTabs",
-        customerIp,
-        customerId: cartId,
-        amount: amount.toFixed(2),
-        currency,
-        actualAccepted: false,
-        source: "created",
-      }).catch((error) => console.error("Unable to create payment review", error)),
+      notifyMerchantEvent(review, origin, "paytabs-started", "Payment started", [
+        "Stage: customer selected PayTabs and pressed Pay",
+      ]).catch((error) => console.error("Unable to send PayTabs start notification", error)),
     );
 
     const payTabsResponse = await fetch(apiUrl, {
@@ -181,8 +186,39 @@ export default async (req: Request, context: Context) => {
     if (!payTabsResponse.ok || !checkoutUrl) {
       const payTabsError = payTabsData.message || "PayTabs did not return a payment URL" + (payTabsData.code ? " (" + payTabsData.code + ")" : "");
 
+      await upsertPaymentReview({
+        id: cartId,
+        cartId,
+        provider: "paytabs",
+        gateway: "PayTabs",
+        customerIp,
+        customerId: cartId,
+        amount: amount.toFixed(2),
+        currency,
+        actualStatus: "session_failed",
+        actualCode: payTabsData.code ? String(payTabsData.code) : undefined,
+        actualMessage: payTabsError,
+        actualAccepted: false,
+        source: "created",
+      });
+
       return json({ error: payTabsError }, 502);
     }
+
+    await upsertPaymentReview({
+      id: cartId,
+      cartId,
+      provider: "paytabs",
+      gateway: "PayTabs",
+      tranRef: payTabsData.tran_ref,
+      customerIp,
+      customerId: cartId,
+      amount: amount.toFixed(2),
+      currency,
+      actualStatus: "checkout_created",
+      actualAccepted: false,
+      source: "created",
+    });
 
     return json({ url: checkoutUrl, tranRef: payTabsData.tran_ref }, 200);
   }
@@ -278,7 +314,26 @@ export default async (req: Request, context: Context) => {
     const checkoutUrl = tapData.transaction?.url;
 
     if (!tapResponse.ok || !checkoutUrl) {
-      return json({ error: getTapError(tapData, tapResponse.status) }, 502);
+      const tapError = getTapError(tapData, tapResponse.status);
+
+      await upsertPaymentReview({
+        id: cartId,
+        cartId,
+        provider: "tap",
+        gateway: "Tap",
+        gatewayOrderId: tapData.id,
+        customerIp,
+        customerId: cartId,
+        amount: amount.toFixed(2),
+        currency,
+        actualStatus: "session_failed",
+        actualCode: tapData.response?.code,
+        actualMessage: tapError,
+        actualAccepted: false,
+        source: "created",
+      });
+
+      return json({ error: tapError }, 502);
     }
 
     await upsertPaymentReview({
@@ -363,7 +418,26 @@ export default async (req: Request, context: Context) => {
     const checkoutUrl = tamaraData.checkout_deeplink || tamaraData.checkout_url;
 
     if (!tamaraResponse.ok || !checkoutUrl) {
-      return json({ error: getTamaraError(tamaraData, tamaraResponse.status) }, 502);
+      const tamaraError = getTamaraError(tamaraData, tamaraResponse.status);
+
+      await upsertPaymentReview({
+        id: cartId,
+        cartId,
+        provider: "tamara",
+        gateway: "Tamara",
+        gatewayOrderId: tamaraData.order_id,
+        checkoutId: tamaraData.checkout_id,
+        customerIp,
+        customerId: cartId,
+        amount: amount.toFixed(2),
+        currency,
+        actualStatus: "session_failed",
+        actualMessage: tamaraError,
+        actualAccepted: false,
+        source: "created",
+      });
+
+      return json({ error: tamaraError }, 502);
     }
 
     await upsertPaymentReview({

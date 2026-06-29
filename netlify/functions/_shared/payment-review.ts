@@ -53,28 +53,67 @@ const manualDecisionWaitMs = 20000;
 export async function upsertPaymentReview(patch: PaymentReviewPatch): Promise<PaymentReview> {
   const now = new Date().toISOString();
   const existing = await getPaymentReview(patch.id);
-  const base: PaymentReview = existing || {
-    id: patch.id,
+  const base = existing || createEmptyPaymentReview(patch.id, now);
+  let review = mergePaymentReview(base, patch, now);
+  const latest = await getPaymentReview(patch.id);
+
+  if (latest && latest.updatedAt !== existing?.updatedAt) {
+    review = mergePaymentReview(latest, patch, now);
+  }
+
+  await savePaymentReview(review);
+
+  return review;
+}
+
+function createEmptyPaymentReview(id: string, now: string): PaymentReview {
+  return {
+    id,
     currency: "SAR",
     actualAccepted: false,
     source: "created",
     createdAt: now,
     updatedAt: now,
   };
-  const review: PaymentReview = {
+}
+
+function mergePaymentReview(base: PaymentReview, patch: PaymentReviewPatch, now: string): PaymentReview {
+  const preserveGatewayState = patch.source === "created" && base.source !== "created";
+
+  return {
     ...base,
     ...patch,
     id: patch.id,
+    cartId: patch.cartId || base.cartId,
+    tranRef: patch.tranRef || base.tranRef,
+    provider: patch.provider || base.provider,
+    gateway: patch.gateway || base.gateway,
+    gatewayOrderId: patch.gatewayOrderId || base.gatewayOrderId,
+    checkoutId: patch.checkoutId || base.checkoutId,
+    customerIp: patch.customerIp || base.customerIp,
+    customerId: patch.customerId || base.customerId,
+    customerCountry: patch.customerCountry || base.customerCountry,
+    cardType: patch.cardType || base.cardType,
+    cardScheme: patch.cardScheme || base.cardScheme,
+    cardCountry: patch.cardCountry || base.cardCountry,
+    amount: patch.amount || base.amount,
     currency: patch.currency || base.currency || "SAR",
-    actualAccepted: patch.actualAccepted ?? base.actualAccepted ?? false,
-    source: patch.source || base.source || "created",
+    actualStatus: preserveGatewayState ? base.actualStatus || patch.actualStatus : patch.actualStatus || base.actualStatus,
+    actualCode: preserveGatewayState ? base.actualCode || patch.actualCode : patch.actualCode || base.actualCode,
+    actualMessage: preserveGatewayState ? base.actualMessage || patch.actualMessage : patch.actualMessage || base.actualMessage,
+    actualAccepted: preserveGatewayState
+      ? base.actualAccepted || patch.actualAccepted || false
+      : patch.actualAccepted ?? base.actualAccepted ?? false,
+    source: preserveGatewayState ? base.source : patch.source || base.source || "created",
+    decision: patch.decision || base.decision,
+    notifiedAt: patch.notifiedAt || base.notifiedAt,
+    notifications: {
+      ...(base.notifications || {}),
+      ...(patch.notifications || {}),
+    },
     createdAt: base.createdAt,
     updatedAt: now,
   };
-
-  await savePaymentReview(review);
-
-  return review;
 }
 
 export async function savePaymentReview(review: PaymentReview): Promise<void> {
@@ -86,9 +125,14 @@ export async function getPaymentReview(id: string): Promise<PaymentReview | null
 }
 
 export async function listPaymentReviews(limit = 30): Promise<PaymentReview[]> {
-  const result = await store.list({ prefix: paymentsPrefix });
+  const blobs = [];
+
+  for await (const result of store.list({ prefix: paymentsPrefix, paginate: true })) {
+    blobs.push(...result.blobs);
+  }
+
   const reviews = await Promise.all(
-    result.blobs.map(async (blob) => (await store.get(blob.key, { type: "json" })) as PaymentReview | null),
+    blobs.map(async (blob) => (await store.get(blob.key, { type: "json" })) as PaymentReview | null),
   );
 
   return reviews
@@ -150,17 +194,20 @@ export async function isPanelActive(thresholdMs = 25000): Promise<boolean> {
 }
 
 export async function notifyMerchantIfAway(review: PaymentReview, origin: string): Promise<PaymentReview> {
-  if (review.notifiedAt) return review;
+  const currentReview = (await getPaymentReview(review.id)) || review;
+
+  if (currentReview.notifiedAt) return currentReview;
 
   const panelActive = await isPanelActive();
-  const text = buildTelegramText(review, origin, "Payment needs review", [
+  const text = buildTelegramText(currentReview, origin, "Payment needs review", [
     `Panel: ${panelActive ? "open" : "away"}`,
   ]);
 
-  if (!(await sendTelegramMessage(text, origin, review.id))) return review;
+  if (!(await sendTelegramMessage(text, origin, currentReview.id))) return currentReview;
 
+  const latestReview = (await getPaymentReview(currentReview.id)) || currentReview;
   const updatedReview: PaymentReview = {
-    ...review,
+    ...latestReview,
     notifiedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
@@ -177,17 +224,20 @@ export async function notifyMerchantEvent(
   title: string,
   details: string[] = [],
 ): Promise<PaymentReview> {
-  if (review.notifications?.[eventKey]) return review;
+  const currentReview = (await getPaymentReview(review.id)) || review;
 
-  const text = buildTelegramText(review, origin, title, details);
+  if (currentReview.notifications?.[eventKey]) return currentReview;
 
-  if (!(await sendTelegramMessage(text, origin, review.id))) return review;
+  const text = buildTelegramText(currentReview, origin, title, details);
+
+  if (!(await sendTelegramMessage(text, origin, currentReview.id))) return currentReview;
 
   const now = new Date().toISOString();
+  const latestReview = (await getPaymentReview(currentReview.id)) || currentReview;
   const updatedReview: PaymentReview = {
-    ...review,
+    ...latestReview,
     notifications: {
-      ...(review.notifications || {}),
+      ...(latestReview.notifications || {}),
       [eventKey]: now,
     },
     updatedAt: now,
